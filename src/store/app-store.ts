@@ -44,7 +44,7 @@ const initialData = {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       ...initialData,
 
       setStatus: (topicId, status) =>

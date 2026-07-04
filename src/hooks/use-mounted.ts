@@ -2,12 +2,17 @@
 
 import * as React from "react";
 
+const emptySubscribe = () => () => {};
+
 /**
- * True after the component has mounted in the browser. Used to avoid
- * server/client mismatches for UI that depends on localStorage-persisted state.
+ * False during server rendering and hydration, true once the component is
+ * live in the browser. Used to avoid server/client mismatches for UI that
+ * depends on localStorage-persisted state.
  */
 export function useMounted() {
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
-  return mounted;
+  return React.useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
 }

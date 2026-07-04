@@ -1,20 +1,63 @@
 # Deployment Guide
 
-> **Status:** Not deployed yet — deployment happens at V1 Milestone 8.
+> **Status:** Code is deployment-ready. Waiting on founder to create free GitHub and Vercel accounts (steps below).
 
-## Target setup
+## How hosting works (plain English)
 
-- **Code:** GitHub private repository (founder's account)
-- **Hosting:** Vercel Free Tier, connected to the GitHub repo
-- **Pipeline:** every push to `main` automatically builds and deploys
-- **Environment variables:** none needed in V1 (no backend, no secrets)
+- **GitHub** stores the code safely online (like Google Drive for code, with full history).
+- **Vercel** takes the code from GitHub and puts it on the internet at a real URL.
+- After one-time setup, every future improvement deploys **automatically** — no manual work.
+- V1 needs **no environment variables and no secrets**: the app is fully static.
 
-## Deploy checklist (used at Milestone 8)
+## One-time setup (founder, ~20 minutes)
 
-1. `npm run lint` — passes
-2. `npm test` — passes
-3. `npm run build` — passes
-4. Push to GitHub → Vercel builds automatically
-5. Verify the live URL on phone + desktop
+### Step 1 — Create a GitHub account
+1. Go to **github.com** and click **Sign up**.
+2. Use your email, pick a username and password, verify your email.
 
-Click-by-click founder instructions will be added here when we deploy.
+### Step 2 — Create the repository
+1. Once logged in, go to **github.com/new**.
+2. Repository name: **upsc-os**
+3. Choose **Private**.
+4. Do **not** tick any of the "Initialize this repository" checkboxes (no README, no .gitignore, no license — our project already has these).
+5. Click **Create repository** and leave the page open.
+
+### Step 3 — Push the code (tell Claude "the repo is created")
+Claude will run the two commands below for you and a browser window will pop up
+asking you to authorize Git — click **Sign in with your browser** and approve.
+
+```bash
+git remote add origin https://github.com/<YOUR-USERNAME>/upsc-os.git
+git push -u origin main
+```
+
+### Step 4 — Create a Vercel account and deploy
+1. Go to **vercel.com** and click **Sign Up**.
+2. Choose **Continue with GitHub** (this connects the two services automatically).
+3. Select the **Hobby** (free) plan.
+4. On the Vercel dashboard click **Add New… → Project**.
+5. You'll see **upsc-os** in the list — click **Import**.
+6. Change nothing on the settings screen. Click **Deploy**.
+7. Wait ~2 minutes. Vercel shows confetti and a URL like `upsc-os-xxxx.vercel.app` — that's your live app. Open it on your phone too.
+
+## Release checklist (run before every deploy)
+
+1. `npm run lint` — must report no problems
+2. `npm test` — all tests pass
+3. `npm run build` — completes successfully
+4. Push to GitHub → Vercel deploys automatically
+5. Run the manual test checklist below on the live URL
+
+## Founder manual test checklist (~10 minutes)
+
+1. Open the live URL → landing page loads, looks right in light **and** dark mode (toggle top-right).
+2. Click **Open app** → dashboard appears.
+3. Go to **Settings** → type your name, set a target exam date → back to **Dashboard** → greeting shows your name, countdown shows days remaining.
+4. Go to **Syllabus** → open *Paper I — General Studies → History → Ancient India* → set two topics to **Completed**.
+5. Check the section progress bar moved, then go to **Dashboard** → *Paper I* shows 2 done.
+6. Press **Ctrl+K** (or tap **Search** on mobile) → type "mauryan" → a topic appears → selecting it opens the right page.
+7. **Settings → Export backup** → a JSON file downloads.
+8. Refresh the page → everything you set is still there.
+9. On your phone: bottom navigation shows Dashboard / Syllabus / Search / Settings and everything above works.
+
+If anything fails, tell Claude what step number failed and what you saw.

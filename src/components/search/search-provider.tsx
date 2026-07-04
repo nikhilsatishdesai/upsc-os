@@ -99,10 +99,11 @@ function SearchCommandDialog({
   const [query, setQuery] = React.useState("");
   const recentTopics = useAppStore((state) => state.recentTopics);
 
-  // Reset the query each time the palette is opened.
-  React.useEffect(() => {
-    if (open) setQuery("");
-  }, [open]);
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    // Clear the query on close so the palette always opens fresh.
+    if (!nextOpen) setQuery("");
+  };
 
   const q = query.trim().toLowerCase();
   const topicResults = q === "" ? [] : searchTopics(q);
@@ -119,7 +120,11 @@ function SearchCommandDialog({
       : [];
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen} title="Search UPSC OS">
+    <CommandDialog
+      open={open}
+      onOpenChange={handleOpenChange}
+      title="Search UPSC OS"
+    >
       <CommandInput
         placeholder="Search syllabus topics and pages…"
         value={query}

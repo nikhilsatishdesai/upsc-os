@@ -111,8 +111,8 @@ function ProgressRing({ percent }: { percent: number }) {
         y="38"
         textAnchor="middle"
         dominantBaseline="central"
-        className="rotate-90 fill-foreground text-sm font-semibold tabular-nums"
         transform="rotate(90 38 38)"
+        className="fill-foreground text-sm font-semibold tabular-nums"
       >
         {percent}%
       </text>

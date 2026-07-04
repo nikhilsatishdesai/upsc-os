@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(Remove-Item \"D:\\\\UPSC OS\\\\PHASE-1-PLAN.md\" -Confirm:$false)"
+    ]
+  }
+}

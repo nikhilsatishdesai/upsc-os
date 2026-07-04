@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, TriangleAlert } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { diffDays, todayStr } from "@/lib/planner/dates";
+import { computeForecast } from "@/lib/planner/forecast";
 import { useAppStore } from "@/store/app-store";
 import { useMounted } from "@/hooks/use-mounted";
 import { Badge } from "@/components/ui/badge";
@@ -23,9 +24,16 @@ export function PlannerView() {
   const mounted = useMounted();
   const planner = useAppStore((state) => state.planner);
   const examDate = useAppStore((state) => state.examDate);
+  const topics = useAppStore((state) => state.topics);
   const lastPlannedAt = useAppStore((state) => state.lastPlannedAt);
   const regeneratePlan = useAppStore((state) => state.regeneratePlan);
   const [tab, setTab] = React.useState<Tab>("Today");
+
+  const paceWarning = React.useMemo(() => {
+    if (!mounted || !planner || !examDate) return null;
+    const forecast = computeForecast(topics, planner, examDate, todayStr());
+    return forecast.paceStatus === "behind" ? forecast : null;
+  }, [mounted, planner, examDate, topics]);
 
   // Daily adaptive replan: converts missed work back into future capacity.
   React.useEffect(() => {
@@ -71,6 +79,20 @@ export function PlannerView() {
           <PlannerSettingsDialog />
         </div>
       </div>
+
+      {paceWarning && (
+        <p className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            At the current pace the syllabus finishes after Prelims. You need
+            about{" "}
+            {Math.round(((paceWarning.requiredDailyMinutes ?? 0) / 60) * 10) /
+              10}{" "}
+            h/day (currently {planner.dailyHours} h). See Analytics for
+            details.
+          </span>
+        </p>
+      )}
 
       <div
         role="tablist"

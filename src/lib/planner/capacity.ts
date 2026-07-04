@@ -53,3 +53,20 @@ export function slotStartTime(
   if (slot === "morning") return settings.studyStartTime;
   return PLANNER_CONFIG.slotStarts[slot] ?? settings.studyStartTime;
 }
+
+/** Study days per week: one recovery day always exists — either the user's
+ * weekly off day or the auto-inserted one (burnout prevention). */
+export function studyDaysPerWeek(settings: PlannerSettings): number {
+  if (settings.weeklyOffDay >= 0) return 6;
+  const cycle = PLANNER_CONFIG.maxConsecutiveStudyDays + 1;
+  return Math.round((7 * PLANNER_CONFIG.maxConsecutiveStudyDays) / cycle);
+}
+
+/** Minutes of study capacity in a typical week. */
+export function weeklyCapacityMinutes(settings: PlannerSettings): number {
+  const perDay = Math.min(
+    Math.round(settings.dailyHours * 60),
+    settings.maxSessionsPerDay * settings.sessionMinutes,
+  );
+  return perDay * studyDaysPerWeek(settings);
+}

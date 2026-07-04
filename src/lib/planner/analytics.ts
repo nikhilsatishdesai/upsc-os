@@ -1,8 +1,10 @@
-import type { TopicStateMap } from "@/lib/stages";
+import { getTopicState, type Difficulty, type TopicStateMap } from "@/lib/stages";
 import { PLANNER_CONFIG } from "./config";
+import { weeklyCapacityMinutes } from "./capacity";
 import { addDays, startOfMonth, startOfWeek, todayStr } from "./dates";
+import { paperShortName, resolveTopicIntel } from "./intel";
 import { buildWorkPool } from "./workload";
-import type { PlannedTask } from "./types";
+import type { PlannedTask, PlannerSettings } from "./types";
 
 /** Date a completed task actually counts towards (its completion day). */
 function completionDate(task: PlannedTask): string | null {
@@ -182,4 +184,141 @@ export function remainingSyllabus(topics: TopicStateMap): RemainingSyllabus {
     topics: pool.length,
     minutes: pool.reduce((sum, item) => sum + item.remaining, 0),
   };
+}
+
+/** Completed study minutes grouped by paper, largest first. */
+export function subjectDistribution(
+  tasks: PlannedTask[],
+): { paper: string; minutes: number }[] {
+  const byPaper = new Map<string, number>();
+  for (const task of tasks) {
+    if (task.status !== "completed") continue;
+    const paper = paperShortName(task.topicId);
+    byPaper.set(paper, (byPaper.get(paper) ?? 0) + task.minutes);
+  }
+  return [...byPaper.entries()]
+    .map(([paper, minutes]) => ({ paper, minutes }))
+    .sort((a, b) => b.minutes - a.minutes);
+}
+
+/** Planned minutes in the coming week by resolved difficulty. */
+export function difficultyDistribution(
+  tasks: PlannedTask[],
+  topics: TopicStateMap,
+  today: string = todayStr(),
+  days: number = 7,
+): Record<Difficulty, number> {
+  const to = addDays(today, days - 1);
+  const result: Record<Difficulty, number> = { easy: 0, medium: 0, hard: 0 };
+  for (const task of tasks) {
+    if (task.date < today || task.date > to) continue;
+    if (task.status !== "pending" && task.status !== "completed") continue;
+    const intel = resolveTopicIntel(
+      task.topicId,
+      getTopicState(topics, task.topicId),
+    );
+    result[intel.difficulty] += task.minutes;
+  }
+  return result;
+}
+
+export type RevisionShare = {
+  revisionMinutes: number;
+  studyMinutes: number;
+  /** Revision share of the coming week's plan, 0–100. */
+  percent: number;
+};
+
+/** Revision vs fresh-study split of the coming week's plan. */
+export function revisionShare(
+  tasks: PlannedTask[],
+  today: string = todayStr(),
+  days: number = 7,
+): RevisionShare {
+  const to = addDays(today, days - 1);
+  let revision = 0;
+  let study = 0;
+  for (const task of tasks) {
+    if (task.date < today || task.date > to || task.status === "skipped")
+      continue;
+    if (task.status !== "pending" && task.status !== "completed") continue;
+    if (task.kind === "revision") revision += task.minutes;
+    else study += task.minutes;
+  }
+  const total = revision + study;
+  return {
+    revisionMinutes: revision,
+    studyMinutes: study,
+    percent: total === 0 ? 0 : Math.round((revision / total) * 100),
+  };
+}
+
+export type BurnoutLevel = "sustainable" | "elevated" | "high";
+
+export type BurnoutIndicator = {
+  /** 0 (fresh) – 100 (overloaded). */
+  score: number;
+  level: BurnoutLevel;
+  /** Coming week's planned load vs capacity (0–1+). */
+  loadRatio: number;
+  consecutiveDays: number;
+  /** Share of the coming week that is hard material (0–1). */
+  hardShare: number;
+};
+
+export const BURNOUT_META: Record<
+  BurnoutLevel,
+  { label: string; className: string }
+> = {
+  sustainable: {
+    label: "Sustainable",
+    className:
+      "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  },
+  elevated: {
+    label: "Elevated",
+    className:
+      "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  },
+  high: {
+    label: "High",
+    className:
+      "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400",
+  },
+};
+
+/**
+ * Burnout indicator combining load (planned vs capacity), fatigue
+ * (consecutive study days) and strain (share of hard material ahead).
+ */
+export function burnoutIndicator(
+  tasks: PlannedTask[],
+  topics: TopicStateMap,
+  settings: PlannerSettings,
+  today: string = todayStr(),
+): BurnoutIndicator {
+  const cfg = PLANNER_CONFIG.burnout;
+  const weekCapacity = weeklyCapacityMinutes(settings);
+  const planned = upcomingPendingMinutes(tasks, 7, today);
+  const loadRatio = weekCapacity === 0 ? 1 : planned / weekCapacity;
+
+  const consecutiveDays = currentStreak(tasks, today);
+
+  const byDifficulty = difficultyDistribution(tasks, topics, today, 7);
+  const weekTotal = byDifficulty.easy + byDifficulty.medium + byDifficulty.hard;
+  const hardShare = weekTotal === 0 ? 0 : byDifficulty.hard / weekTotal;
+
+  const score = Math.round(
+    cfg.loadWeight * Math.min(1, loadRatio / cfg.loadDanger) +
+      cfg.streakWeight * Math.min(1, consecutiveDays / cfg.streakDanger) +
+      cfg.hardWeight * Math.min(1, hardShare / cfg.hardShareDanger),
+  );
+  const level: BurnoutLevel =
+    score >= cfg.highAt
+      ? "high"
+      : score >= cfg.elevatedAt
+        ? "elevated"
+        : "sustainable";
+
+  return { score, level, loadRatio, consecutiveDays, hardShare };
 }

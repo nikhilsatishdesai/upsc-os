@@ -40,6 +40,24 @@ export const PLANNER_CONFIG = {
   consistencyWindowDays: 30,
   /** Days shown in the "hours studied" chart. */
   hoursChartDays: 14,
+  /** Finish this many days before Prelims to count as "on track". */
+  forecastBufferDays: 14,
+  /** Burnout indicator tuning: factor weights (sum 100) and the levels at
+   * which each factor maxes out. */
+  burnout: {
+    loadWeight: 40,
+    streakWeight: 30,
+    hardWeight: 30,
+    /** Planned/capacity ratio treated as full overload. */
+    loadDanger: 1.0,
+    /** Consecutive study days treated as full fatigue. */
+    streakDanger: 10,
+    /** Share of hard sessions treated as fully draining. */
+    hardShareDanger: 0.6,
+    /** Score bands: below elevated = sustainable. */
+    elevatedAt: 40,
+    highAt: 70,
+  },
 } as const;
 
 export const SLOT_ORDER: TaskSlot[] = ["morning", "afternoon", "evening"];

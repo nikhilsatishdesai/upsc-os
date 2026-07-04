@@ -16,10 +16,10 @@ export function MobileNav() {
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 md:hidden"
     >
       <div
-        className="grid grid-cols-4"
+        className="grid grid-cols-5"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        {navItems.slice(0, 2).map((item) => (
+        {navItems.slice(0, 3).map((item) => (
           <MobileNavLink
             key={item.href}
             href={item.href}
@@ -32,7 +32,7 @@ export function MobileNav() {
           </MobileNavLink>
         ))}
         <MobileSearchButton />
-        {navItems.slice(2).map((item) => (
+        {navItems.slice(3).map((item) => (
           <MobileNavLink
             key={item.href}
             href={item.href}

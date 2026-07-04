@@ -1,4 +1,5 @@
 import {
+  CalendarCheck2,
   LayoutDashboard,
   Library,
   Settings,
@@ -13,6 +14,7 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Planner", href: "/planner", icon: CalendarCheck2 },
   { title: "Syllabus", href: "/syllabus", icon: Library },
   { title: "Settings", href: "/settings", icon: Settings },
 ];

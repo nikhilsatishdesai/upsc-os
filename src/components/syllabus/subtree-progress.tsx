@@ -6,7 +6,10 @@ import { useMounted } from "@/hooks/use-mounted";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
-/** Progress bar + "done/total" fraction for the subtree rooted at `nodeId`. */
+/**
+ * Weighted preparation bar for the subtree rooted at `nodeId`, with a
+ * "covered/total" fraction (covered = at least first reading done).
+ */
 export function SubtreeProgress({
   nodeId,
   className,
@@ -17,19 +20,19 @@ export function SubtreeProgress({
   showFraction?: boolean;
 }) {
   const mounted = useMounted();
-  const progress = useAppStore((state) => state.progress);
-  const summary = summarizeProgress(mounted ? progress : {}, nodeId);
+  const topics = useAppStore((state) => state.topics);
+  const summary = summarizeProgress(mounted ? topics : {}, nodeId);
 
   return (
     <div className={cn("flex items-center gap-3", className)}>
       <Progress
         value={summary.percent}
-        aria-label={`${summary.percent}% complete`}
+        aria-label={`${summary.percent}% prepared`}
         className="h-1.5 flex-1"
       />
       {showFraction && (
         <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-          {summary.done}/{summary.total}
+          {summary.covered}/{summary.total}
         </span>
       )}
     </div>

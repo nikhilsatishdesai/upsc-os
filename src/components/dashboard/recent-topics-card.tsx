@@ -4,7 +4,7 @@ import Link from "next/link";
 import { History, ChevronRight } from "lucide-react";
 
 import { getNode } from "@/lib/syllabus";
-import { STATUS_META } from "@/lib/status";
+import { getTopicState, STAGE_META } from "@/lib/stages";
 import { useAppStore } from "@/store/app-store";
 import { useMounted } from "@/hooks/use-mounted";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 export function RecentTopicsCard() {
   const mounted = useMounted();
   const recentTopics = useAppStore((state) => state.recentTopics);
-  const progress = useAppStore((state) => state.progress);
+  const topics = useAppStore((state) => state.topics);
 
   const items = mounted
     ? recentTopics
@@ -41,7 +41,7 @@ export function RecentTopicsCard() {
         ) : (
           <ul className="-mx-2 divide-y divide-border/60">
             {items.map((node) => {
-              const status = progress[node.id] ?? "not-started";
+              const stage = getTopicState(topics, node.id).stage;
               return (
                 <li key={node.id}>
                   <Link
@@ -52,7 +52,7 @@ export function RecentTopicsCard() {
                       aria-hidden
                       className={cn(
                         "h-2 w-2 shrink-0 rounded-full",
-                        STATUS_META[status].dot,
+                        STAGE_META[stage].dot,
                       )}
                     />
                     <span className="min-w-0 flex-1">

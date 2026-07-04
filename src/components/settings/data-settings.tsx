@@ -113,7 +113,7 @@ export function DataSettings() {
                     "en-IN",
                     { day: "numeric", month: "long", year: "numeric" },
                   )}{" "}
-                  with {Object.keys(pendingImport.progress).length} tracked
+                  with {Object.keys(pendingImport.topics).length} tracked
                   topics. This replaces everything currently stored in this
                   browser.
                 </>

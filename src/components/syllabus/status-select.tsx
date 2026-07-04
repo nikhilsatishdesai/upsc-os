@@ -3,20 +3,27 @@
 import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { STATUS_META, STATUS_ORDER, type TopicStatus } from "@/lib/status";
+import {
+  getTopicState,
+  STAGE_META,
+  STAGE_ORDER,
+  type StudyStage,
+} from "@/lib/stages";
 import { useAppStore } from "@/store/app-store";
 import { useMounted } from "@/hooks/use-mounted";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 /**
- * Status picker for a leaf topic. `size="lg"` renders the prominent picker
- * used on the topic's own page; default is the compact list-row version.
+ * Study-stage picker for a leaf topic. `size="lg"` renders the prominent
+ * picker used on the topic's own page; default is the compact row version.
  */
 export function StatusSelect({
   topicId,
@@ -26,18 +33,18 @@ export function StatusSelect({
   size?: "sm" | "lg";
 }) {
   const mounted = useMounted();
-  const status = useAppStore(
-    (state) => state.progress[topicId] ?? "not-started",
+  const stage = useAppStore((state) =>
+    getTopicState(state.topics, topicId).stage,
   );
-  const setStatus = useAppStore((state) => state.setStatus);
-  const meta = STATUS_META[mounted ? status : "not-started"];
+  const setStage = useAppStore((state) => state.setStage);
+  const meta = STAGE_META[mounted ? stage : "not-started"];
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`Change status (currently ${meta.label})`}
+          aria-label={`Change study stage (currently ${meta.label})`}
           className={cn(
             "inline-flex shrink-0 items-center gap-2 rounded-full border bg-card font-medium shadow-sm transition-colors hover:bg-secondary",
             size === "lg" ? "px-4 py-2 text-sm" : "px-2.5 py-1 text-xs",
@@ -56,20 +63,22 @@ export function StatusSelect({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Study stage</DropdownMenuLabel>
+        <DropdownMenuSeparator />
         <DropdownMenuRadioGroup
-          value={mounted ? status : "not-started"}
-          onValueChange={(value) => setStatus(topicId, value as TopicStatus)}
+          value={mounted ? stage : "not-started"}
+          onValueChange={(value) => setStage(topicId, value as StudyStage)}
         >
-          {STATUS_ORDER.map((value) => (
+          {STAGE_ORDER.map((value) => (
             <DropdownMenuRadioItem key={value} value={value}>
               <span
                 aria-hidden
                 className={cn(
                   "mr-2 h-2 w-2 rounded-full",
-                  STATUS_META[value].dot,
+                  STAGE_META[value].dot,
                 )}
               />
-              {STATUS_META[value].label}
+              {STAGE_META[value].label}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

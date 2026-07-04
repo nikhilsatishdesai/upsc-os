@@ -1,65 +1,90 @@
 import { getLeafIds } from "@/lib/syllabus";
-import type { TopicStatus } from "@/lib/status";
-
-export type ProgressMap = Record<string, TopicStatus>;
+import {
+  getTopicState,
+  STAGE_META,
+  STAGE_ORDER,
+  stageAtLeast,
+  type StudyStage,
+  type TopicStateMap,
+} from "@/lib/stages";
 
 export type ProgressSummary = {
   total: number;
-  inProgress: number;
-  completed: number;
-  revised: number;
-  /** completed + revised */
-  done: number;
-  /** done as a 0–100 percentage of total */
+  /** Weighted preparation percentage (0–100). 100 = every topic exam-ready. */
   percent: number;
+  /** Topics with at least a first reading done. */
+  covered: number;
+  examReady: number;
+  byStage: Record<StudyStage, number>;
 };
 
-/** Roll up leaf statuses for the subtree rooted at `nodeId`. */
+function emptyByStage(): Record<StudyStage, number> {
+  return Object.fromEntries(STAGE_ORDER.map((stage) => [stage, 0])) as Record<
+    StudyStage,
+    number
+  >;
+}
+
+/** Roll up topic stages for the subtree rooted at `nodeId`. */
 export function summarizeProgress(
-  progress: ProgressMap,
+  topics: TopicStateMap,
   nodeId: string,
 ): ProgressSummary {
   const leafIds = getLeafIds(nodeId);
-  let inProgress = 0;
-  let completed = 0;
-  let revised = 0;
+  const byStage = emptyByStage();
+  let weightSum = 0;
 
   for (const id of leafIds) {
-    const status = progress[id];
-    if (status === "in-progress") inProgress += 1;
-    else if (status === "completed") completed += 1;
-    else if (status === "revised") revised += 1;
+    const stage = getTopicState(topics, id).stage;
+    byStage[stage] += 1;
+    weightSum += STAGE_META[stage].weight;
   }
 
-  const done = completed + revised;
   const total = leafIds.length;
+  const covered = total - byStage["not-started"];
   return {
     total,
-    inProgress,
-    completed,
-    revised,
-    done,
-    percent: total === 0 ? 0 : Math.round((done / total) * 100),
+    percent: total === 0 ? 0 : Math.round((weightSum / total) * 100),
+    covered,
+    examReady: byStage["exam-ready"],
+    byStage,
   };
 }
 
 /** Combined summary across several subtrees (e.g. the whole syllabus). */
 export function summarizeMany(
-  progress: ProgressMap,
+  topics: TopicStateMap,
   nodeIds: string[],
 ): ProgressSummary {
-  const parts = nodeIds.map((id) => summarizeProgress(progress, id));
-  const sum = parts.reduce(
-    (acc, p) => ({
-      total: acc.total + p.total,
-      inProgress: acc.inProgress + p.inProgress,
-      completed: acc.completed + p.completed,
-      revised: acc.revised + p.revised,
-      done: acc.done + p.done,
-      percent: 0,
-    }),
-    { total: 0, inProgress: 0, completed: 0, revised: 0, done: 0, percent: 0 },
+  const byStage = emptyByStage();
+  let total = 0;
+  let weightSum = 0;
+
+  for (const nodeId of nodeIds) {
+    for (const id of getLeafIds(nodeId)) {
+      const stage = getTopicState(topics, id).stage;
+      byStage[stage] += 1;
+      weightSum += STAGE_META[stage].weight;
+      total += 1;
+    }
+  }
+
+  return {
+    total,
+    percent: total === 0 ? 0 : Math.round((weightSum / total) * 100),
+    covered: total - byStage["not-started"],
+    examReady: byStage["exam-ready"],
+    byStage,
+  };
+}
+
+/** Count of topics at or beyond a stage — convenience for widgets. */
+export function countAtLeast(
+  summary: ProgressSummary,
+  min: StudyStage,
+): number {
+  return STAGE_ORDER.filter((stage) => stageAtLeast(stage, min)).reduce(
+    (sum, stage) => sum + summary.byStage[stage],
+    0,
   );
-  sum.percent = sum.total === 0 ? 0 : Math.round((sum.done / sum.total) * 100);
-  return sum;
 }

@@ -39,7 +39,7 @@ export function ProfileSettings() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="exam-date">Target exam date</Label>
+              <Label htmlFor="exam-date">Target Prelims date</Label>
               <Input
                 id="exam-date"
                 type="date"
@@ -48,8 +48,8 @@ export function ProfileSettings() {
                 className="max-w-sm"
               />
               <p className="text-xs text-muted-foreground">
-                Usually the date of the upcoming Prelims. Powers the dashboard
-                countdown.
+                Powers the dashboard countdown and the study planner. The
+                Mains date lives in Planner settings.
               </p>
             </div>
           </>

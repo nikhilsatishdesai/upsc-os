@@ -4,7 +4,7 @@ import { TrendingUp } from "lucide-react";
 
 import { getRoots } from "@/lib/syllabus";
 import { summarizeMany } from "@/lib/progress";
-import { STATUS_META } from "@/lib/status";
+import { STAGE_META } from "@/lib/stages";
 import { useAppStore } from "@/store/app-store";
 import { useMounted } from "@/hooks/use-mounted";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,14 +15,21 @@ const rootIds = getRoots().map((root) => root.id);
 
 export function OverallProgressCard() {
   const mounted = useMounted();
-  const progress = useAppStore((state) => state.progress);
-  const summary = summarizeMany(mounted ? progress : {}, rootIds);
+  const topics = useAppStore((state) => state.topics);
+  const summary = summarizeMany(mounted ? topics : {}, rootIds);
+
+  const reading = summary.byStage["first-reading"];
+  const notes = summary.byStage["notes-made"];
+  const revising =
+    summary.byStage["revision-1"] +
+    summary.byStage["revision-2"] +
+    summary.byStage["revision-3"];
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <TrendingUp className="h-4 w-4" /> Overall syllabus progress
+          <TrendingUp className="h-4 w-4" /> Overall preparation
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -34,26 +41,30 @@ export function OverallProgressCard() {
             <div className="space-y-1.5 text-sm">
               <p>
                 <span className="font-semibold tabular-nums">
-                  {summary.done}
+                  {summary.covered}
                 </span>{" "}
                 of{" "}
                 <span className="font-semibold tabular-nums">
                   {summary.total}
                 </span>{" "}
-                topics done
+                topics covered
               </p>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <StatusCount
-                  dot={STATUS_META["in-progress"].dot}
-                  label={`${summary.inProgress} in progress`}
+                  dot={STAGE_META["first-reading"].dot}
+                  label={`${reading} read`}
                 />
                 <StatusCount
-                  dot={STATUS_META.completed.dot}
-                  label={`${summary.completed} completed`}
+                  dot={STAGE_META["notes-made"].dot}
+                  label={`${notes} with notes`}
                 />
                 <StatusCount
-                  dot={STATUS_META.revised.dot}
-                  label={`${summary.revised} revised`}
+                  dot={STAGE_META["revision-2"].dot}
+                  label={`${revising} revising`}
+                />
+                <StatusCount
+                  dot={STAGE_META["exam-ready"].dot}
+                  label={`${summary.examReady} exam ready`}
                 />
               </div>
             </div>
@@ -84,7 +95,7 @@ function ProgressRing({ percent }: { percent: number }) {
       height="76"
       viewBox="0 0 76 76"
       role="img"
-      aria-label={`${percent}% of the syllabus completed`}
+      aria-label={`${percent}% prepared`}
       className="shrink-0 -rotate-90"
     >
       <circle

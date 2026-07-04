@@ -168,6 +168,20 @@ export function SetupForm({
         </div>
       </div>
 
+      {settings.maxSessionsPerDay * settings.sessionMinutes <
+        settings.dailyHours * 60 && (
+        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-400">
+          Heads-up: {settings.maxSessionsPerDay} session
+          {settings.maxSessionsPerDay === 1 ? "" : "s"} ×{" "}
+          {settings.sessionMinutes} min ={" "}
+          {Math.round(
+            ((settings.maxSessionsPerDay * settings.sessionMinutes) / 60) * 10,
+          ) / 10}
+          h — less than your {settings.dailyHours}h/day. The planner uses the
+          smaller number; add sessions or lengthen them to use your full time.
+        </p>
+      )}
+
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}

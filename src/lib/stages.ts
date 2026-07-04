@@ -206,13 +206,28 @@ export const DEFAULT_TOPIC_STATE: TopicState = {
 export type TopicStateMap = Record<string, TopicState>;
 
 /**
+ * Merged-state cache. Store updates replace topic objects immutably, so a
+ * given stored object always merges to the same result — caching keeps the
+ * returned reference stable, which React selectors depend on (an uncached
+ * fresh object per call causes infinite re-render loops).
+ */
+const mergedStateCache = new WeakMap<object, TopicState>();
+
+/**
  * Read a topic's state with defaults merged in for anything unset — new
- * fields added in later versions are backfilled automatically.
+ * fields added in later versions are backfilled automatically. Returns a
+ * referentially stable object for the same stored input.
  */
 export function getTopicState(
   topics: TopicStateMap,
   topicId: string,
 ): TopicState {
   const stored = topics[topicId];
-  return stored ? { ...DEFAULT_TOPIC_STATE, ...stored } : DEFAULT_TOPIC_STATE;
+  if (!stored) return DEFAULT_TOPIC_STATE;
+  let merged = mergedStateCache.get(stored);
+  if (!merged) {
+    merged = { ...DEFAULT_TOPIC_STATE, ...stored };
+    mergedStateCache.set(stored, merged);
+  }
+  return merged;
 }

@@ -42,6 +42,10 @@ export const PLANNER_CONFIG = {
   hoursChartDays: 14,
   /** Finish this many days before Prelims to count as "on track". */
   forecastBufferDays: 14,
+  /** A day at/above this share of capacity is labelled "Heavy". */
+  heavyDayLoadRatio: 0.85,
+  /** A non-empty day at/below this share of capacity is "Light". */
+  lightDayLoadRatio: 0.5,
   /** Burnout indicator tuning: factor weights (sum 100) and the levels at
    * which each factor maxes out. */
   burnout: {

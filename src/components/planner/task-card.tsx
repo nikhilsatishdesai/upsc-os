@@ -17,8 +17,15 @@ import {
 
 import { cn } from "@/lib/utils";
 import { getNode } from "@/lib/syllabus";
+import {
+  getTopicState,
+  PRIORITY_META,
+  STAGE_META,
+  DIFFICULTY_META,
+} from "@/lib/stages";
 import { PLANNER_CONFIG } from "@/lib/planner/config";
 import { todayStr } from "@/lib/planner/dates";
+import { paperShortName, resolveTopicIntel, subjectNameOf } from "@/lib/planner/intel";
 import type { PlannedTask } from "@/lib/planner/types";
 import { tomorrowStr, useAppStore } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
@@ -64,6 +71,9 @@ export function TaskCard({
   const moveTask = useAppStore((state) => state.moveTask);
   const splitTask = useAppStore((state) => state.splitTask);
   const mergeTasks = useAppStore((state) => state.mergeTasks);
+  const topic = useAppStore((state) =>
+    getTopicState(state.topics, task.topicId),
+  );
 
   const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
   const [moveDate, setMoveDate] = React.useState(tomorrowStr());
@@ -71,6 +81,8 @@ export function TaskCard({
   const node = getNode(task.topicId);
   if (!node) return null;
 
+  const intel = resolveTopicIntel(task.topicId, topic);
+  const isRevision = task.kind === "revision";
   const pending = task.status === "pending";
   const mergeTarget = siblings.find(
     (sibling) =>
@@ -123,19 +135,58 @@ export function TaskCard({
       )}
 
       <div className="min-w-0 flex-1">
-        <Link
-          href={`/syllabus/${task.topicId}`}
-          className={cn(
-            "block truncate font-medium hover:text-primary",
-            compact ? "text-xs" : "text-sm",
-            task.status === "completed" && "line-through decoration-1",
+        <div className="flex items-center gap-1.5">
+          {compact && (
+            <span
+              aria-hidden
+              title={`${PRIORITY_META[intel.priority].label} priority`}
+              className={cn(
+                "h-1.5 w-1.5 shrink-0 rounded-full",
+                PRIORITY_META[intel.priority].dot,
+              )}
+            />
           )}
-        >
-          {node.title}
-        </Link>
+          <Link
+            href={`/syllabus/${task.topicId}`}
+            className={cn(
+              "block truncate font-medium hover:text-primary",
+              compact ? "text-xs" : "text-sm",
+              task.status === "completed" && "line-through decoration-1",
+            )}
+          >
+            {node.title}
+          </Link>
+          {isRevision && (
+            <span
+              className={cn(
+                "shrink-0 rounded-full border px-1.5 font-medium text-violet-600 dark:text-violet-400",
+                "border-violet-500/30 bg-violet-500/10",
+                compact ? "text-[9px]" : "text-[10px]",
+              )}
+            >
+              {compact ? "R" : `Revision ${Math.min(topic.revisionCount + 1, 3)}`}
+            </span>
+          )}
+          {!compact && (
+            <span
+              className={cn(
+                "shrink-0 rounded-full border px-1.5 text-[10px] font-medium",
+                PRIORITY_META[intel.priority].badge,
+              )}
+            >
+              {PRIORITY_META[intel.priority].label}
+            </span>
+          )}
+        </div>
         {!compact && (
           <p className="truncate text-xs text-muted-foreground">
-            {node.pathTitles.slice(1).join(" · ")}
+            {paperShortName(task.topicId)} · {subjectNameOf(task.topicId)} ·{" "}
+            {STAGE_META[topic.stage].label} ·{" "}
+            {DIFFICULTY_META[intel.difficulty].label}
+            {isRevision &&
+              topic.nextRevisionAt &&
+              pending &&
+              ` · due ${topic.nextRevisionAt <= todayStr() ? "today" : topic.nextRevisionAt}`}
           </p>
         )}
       </div>

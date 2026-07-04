@@ -149,6 +149,11 @@ export function TodayPlanCard() {
                           "text-muted-foreground line-through decoration-1",
                       )}
                     >
+                      {task.kind === "revision" && (
+                        <span className="text-violet-600 dark:text-violet-400">
+                          Revise:{" "}
+                        </span>
+                      )}
                       {node.title}
                     </Link>
                     <span className="shrink-0 text-xs tabular-nums text-muted-foreground">

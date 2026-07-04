@@ -5,69 +5,62 @@
 
 ## Current Milestone
 
-**V1 "Foundation" — Milestone 8 of 8: COMPLETE (code + tests). Awaiting deployment (founder must create GitHub + Vercel accounts).**
+**V2 "Compass" (Study Planner) — CODE-COMPLETE.** All V2 milestones committed and verified live in the browser. **Neither V1 nor V2 is deployed yet** — founder still needs to create GitHub + Vercel accounts (DEPLOYMENT.md has click-by-click steps).
 
-V1 milestones (each is one git commit, restorable):
-1. ✅ Docs + Git repository initialized
-2. ✅ Next.js 15 scaffold + tooling (TypeScript strict, Tailwind v4, ESLint flat config, Vitest)
-3. ✅ Design system + responsive app shell (desktop sidebar, mobile bottom-nav, dark mode)
-4. ✅ Complete UPSC syllabus dataset (235 leaf topics) + browser + progress tracking
-5. ✅ Dashboard (countdown, progress ring, per-paper progress, recent topics)
-6. ✅ Global Ctrl+K search across all topics (ranked, with recents)
-7. ✅ Landing page + settings (profile, exam date, theme, backup export/import/reset)
-8. ✅ Test suite (23 tests, all passing) + docs + live browser verification
+V2 milestones (each one git commit, restorable):
+1. ✅ Study lifecycle v2 + revision-ready topic model + scheduling engine + store v2 (with V1 data migration)
+2. ✅ Planner page: setup wizard, Today/Week views, drag & drop, task actions, analytics tab
+3. ✅ Dashboard integration: dual countdown, today panel with streak, recent activity
+4. ✅ Build isolation fix (`build:check`), docs, live verification
 
 ## Completed Work
 
-- Full local-first V1 app, verified live in a browser: status changes persist to
-  localStorage, progress rolls up from topic → section → paper → dashboard,
-  search returns ranked results, mobile + desktop layouts both render.
-- Quality gate all green: `npm run lint` (0 problems), `npm test` (23/23),
-  `npm run build` (302 static pages).
+- **V1 Foundation** (see git history): local-first app — syllabus browser (235 topics), progress tracking, dashboard, Ctrl+K search, settings with JSON backup, landing page.
+- **V2 Compass:** adaptive study planner (details below). 37 tests green, lint clean, `npm run build:check` generates 303 static pages.
+- Live-verified user journey: setup wizard → 36 tasks over 12 days (Sundays off, 3×60-min mixed sessions/day, prelims↔mains alternating) → task completion updates topic minutes → dashboard reflects streak/percentages.
 
 ## Current Architecture
 
-- **Local-first single-user app.** No backend, no auth, no database in V1–V4. Cloud (Supabase) arrives in V5 "Bridge" — do not add server state before then.
-- Next.js 15 App Router (React 19, TypeScript strict). All pages statically generated, including one page per syllabus node (`/syllabus/[id]`, dotted IDs like `prelims.gs.polity`).
-- **Syllabus data** is authored in `src/data/syllabus/*.ts` (one file per paper) as nested trees; `src/lib/syllabus.ts` indexes them at module load (full IDs, parents, leaf counts, breadcrumbs).
-- **User state** in one Zustand store (`src/store/app-store.ts`) persisted to localStorage key `upsc-os-store` (version 1): topic statuses, display name, exam date, recent topics. Backup = JSON export/import with validation.
-- **Progress model:** only leaf topics have a status (`in-progress` / `completed` / `revised`; `not-started` is implicit and never stored). Roll-ups computed by `src/lib/progress.ts` (done = completed + revised).
-- **Hydration rule:** any component reading the store gates on `useMounted()` (`src/hooks/use-mounted.ts`, useSyncExternalStore pattern) to avoid SSR mismatches.
-- UI kit: hand-written shadcn-style components in `src/components/ui/` (Radix primitives + cmdk). Design tokens (oklch, light+dark) in `src/app/globals.css`.
+- **Local-first single-user app.** No backend/auth until V5 "Bridge". Do not add server state before then.
+- **Study lifecycle:** 7 stages (`not-started → first-reading → notes-made → revision-1/2/3 → exam-ready`) in `src/lib/stages.ts`, each with a weight; preparation % = mean stage weight (exam-ready = 100%). Topic model carries `studiedMinutes, lastStudiedAt, revisionCount, difficulty, confidence, estimatedMinutes, nextRevisionAt` — the V3 revision engine plugs in with **no schema changes**.
+- **Scheduling services** (pure logic, UI-free, in `src/lib/planner/`): `config.ts` (all tunables), `dates.ts`, `capacity.ts` (day minutes/sessions/slots), `workload.ts` (effective estimates × difficulty, remaining-minutes pool), `scheduler.ts` (hierarchical round-robin: exam stage → paper → unit → topic; respects pinned tasks; never exceeds capacity), `analytics.ts` (streak, weekly/monthly %, consistency, workload).
+- **Adaptive replan:** on planner open each new day (and via Replan button): overdue pending tasks → status `missed` (kept for history), auto tasks regenerate from remaining workload, user-moved ("pinned") tasks survive untouched. Missed work redistributes across the horizon — never dumped onto tomorrow.
+- **Task completion ↔ syllabus sync:** completing sessions accumulates `studiedMinutes`; reaching the topic estimate auto-advances stage to `first-reading`. Manually setting a stage ≥ first-reading removes the topic from the scheduling pool on next replan. Two-way, automatic.
+- **Store v2** (`src/store/app-store.ts`, localStorage key `upsc-os-store`, version 2, with `migrate` from v1 and v1-backup import). Actions: setStage, setTopicMeta, configurePlanner, regeneratePlan, completeTask, skipTask, reopenTask, moveTask, splitTask, mergeTasks.
+- **Hydration rule:** store-reading components gate on `useMounted()`.
+- Prelims date = `examDate` in store (shared with Settings page); Mains date lives in `planner.mainsDate`.
 
-## Key Files
+## Key Files (V2 additions)
 
-- `src/app/page.tsx` — landing; `src/app/(app)/…` — dashboard, syllabus, syllabus/[id], settings
-- `src/components/layout/…` — sidebar, mobile nav/header, nav-items (single nav source of truth)
-- `src/components/search/search-provider.tsx` — Ctrl+K palette + ranking
-- `src/components/syllabus/…` — status-select, topic-list, subtree-progress, recent-tracker
-- `src/components/dashboard/…`, `src/components/settings/…` — page widgets
-- Tests: `src/lib/*.test.ts`, `src/store/app-store.test.ts`
-- `.claude/launch.json` — preview server config (`npm run dev`, port 3000)
+- `src/app/(app)/planner/page.tsx` → `src/components/planner/*` (planner-view, setup-wizard/form, settings-dialog, today-view, week-view, analytics-view, task-card)
+- `src/components/dashboard/today-plan-card.tsx`, `recent-activity-card.tsx`, reworked `countdown-card.tsx`
+- `src/components/syllabus/topic-meta.tsx` (difficulty/confidence/time editor on leaf pages)
+- Tests: `src/lib/planner/scheduler.test.ts`, `src/lib/progress.test.ts`, `src/store/app-store.test.ts`, `src/lib/syllabus.test.ts`
 
-## Remaining Tasks (V1)
+## Remaining Tasks
 
-- Founder creates GitHub + Vercel accounts and follows DEPLOYMENT.md (click-by-click already written).
-- After deploy: founder runs the manual test checklist (in DEPLOYMENT.md), then V1 is released and V2 "Compass" planning begins.
+- **Deploy V1+V2:** founder creates GitHub + Vercel accounts → push → import (DEPLOYMENT.md).
+- Then V3 "Memory": notes, flashcards, FSRS revision engine (fills `nextRevisionAt`, generates `kind: "revision"` tasks — planner already renders them).
 
 ## Known Bugs
 
-- None open. See KNOWN_ISSUES.md for accepted limitations (npm audit false-positive documented there).
+- None open. See KNOWN_ISSUES.md.
 
 ## Commands Required
 
-- `npm run dev` — local development server (http://localhost:3000)
-- `npm test` / `npm run lint` / `npm run build` — quality gate (all must pass before deploy)
+- `npm run dev` — dev server (http://localhost:3000)
+- `npm test` / `npm run lint` — quality gate
+- `npm run build:check` — production build in isolated `.next-check` folder (**use this while the dev server runs**; plain `npm run build` corrupts the live dev server's cache)
 
 ## Deployment Status
 
-- **Not yet deployed.** Code is 100% Vercel-ready (static output, no env vars needed). Blocked only on founder's GitHub/Vercel accounts.
+- **Not deployed.** Fully Vercel-ready, no env vars needed.
 
 ## Environment Facts
 
 - Founder is a **non-programmer** — plain English, click-by-click steps, make all technical decisions for him.
-- Machine: Windows 11, Git 2.55, Node v25.1, npm 11.6. Project dir: `D:\UPSC OS`. TypeScript 6.0 (strict about CSS imports — `src/types/css.d.ts` handles it). eslint-config-next now ships native flat config (no FlatCompat).
+- Windows 11, Node v25, TS 6 strict, Next 15.5, eslint-config-next 16 (native flat config). Preview server config in `.claude/launch.json`.
 
 ## Next Recommended Step
 
-Walk the founder through DEPLOYMENT.md (GitHub repo creation + push + Vercel import). Then verify the live URL, update this file + CHANGELOG to "V1 released", and start V2 "Compass" planning.
+Get V1+V2 deployed (founder accounts), then plan V3 "Memory" (notes + flashcards + FSRS revision engine on the already-prepared topic model).

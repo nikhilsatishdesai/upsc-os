@@ -13,6 +13,14 @@
 - **End-to-end (browser automation) tests deferred to V5** when auth flows arrive; V1 ships with 23 unit/data-integrity tests plus a founder manual test checklist (see DEPLOYMENT.md).
 - **Prelims topic breakdown:** UPSC publishes Prelims GS as broad headings; the app expands them into the standard study breakdown. Mains papers follow the official syllabus text exactly.
 
+## Accepted limitations (by design in V2)
+
+- **Planner schedules first readings only.** Notes-making and revisions are advanced manually on topic pages; the V3 revision engine will schedule `revision` tasks automatically (the data model and task schema are already in place).
+- **The plan is a rolling 14-day window**, regenerated daily — long-range calendar views come with V3+.
+- **Migration note:** preparation percentages dropped after V2 by design — the old scale treated "completed" as 100%, the new scale reserves 100% for "Exam ready".
+
 ## Non-issues (documented so they aren't re-investigated)
+
+- **Never run `npm run build` while the dev server is running** — both write to `.next` and corrupt the server (symptoms: "Could not find the module … in the React Client Manifest", ENOENT routes-manifest errors). Use `npm run build:check` instead (isolated `.next-check` folder). If it happens anyway: stop the server, delete `.next`, restart.
 
 - **`npm audit` reports 2 moderate findings** in a CSS-processing component bundled inside Next.js. It only matters for apps that process *untrusted* CSS, which UPSC OS never does. The suggested "fix" would downgrade Next.js to a 2020 version and break the app. Safe to ignore; will disappear with a future Next.js update.

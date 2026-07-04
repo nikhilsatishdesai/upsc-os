@@ -2,13 +2,16 @@
 
 **An intelligent operating system for UPSC aspirants** — plan, study, revise, practice, and (soon) get AI-powered mentorship across the entire Prelims → Mains → Interview journey.
 
-> Version 1 (Foundation) — local-first: all your data stays in your browser. No account needed.
+> Version 2 (Compass) — local-first: all your data stays in your browser. No account needed.
 
-## What it does today (V1)
+## What it does today (V1 + V2)
 
-- **Complete UPSC syllabus browser** — Prelims (GS + CSAT) and Mains (Essay, GS1–GS4, qualifying papers) as an expandable tree
-- **Progress tracking** — mark any topic *In progress / Completed / Revised*; progress rolls up per paper and overall
-- **Dashboard** — exam countdown, progress overview, recently viewed topics
+- **Adaptive study planner** — answers eight questions about your routine, then builds a day-by-day plan for the entire remaining syllabus: mixed subjects, balanced papers, realistic days. Miss a day and it redistributes the work automatically without overloading you
+- **Task management** — complete, skip, split, merge, move or drag sessions between days; moved tasks are pinned and survive replanning
+- **Complete UPSC syllabus browser** — Prelims (GS + CSAT) and Mains (Essay, GS1–GS4, qualifying papers) as an expandable tree of 235 trackable topics
+- **Seven-stage study lifecycle** — Not started → First reading → Notes made → Revision 1–3 → Exam ready, with honest weighted preparation percentages
+- **Analytics** — study streak, weekly/monthly completion, consistency, hours chart, workload vs capacity, subject-wise preparation
+- **Dashboard** — Prelims & Mains countdowns, today's plan with one-tap completion, recent activity, per-paper progress
 - **Global search** — press `Ctrl+K` (or `⌘K`) anywhere to jump to any topic
 - **Premium UI** — responsive on phone/tablet/desktop, light & dark mode
 - **Your data is yours** — stored in your browser; export/import a JSON backup anytime from Settings
@@ -21,10 +24,11 @@ Next.js 15 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS v4 ·
 
 ```bash
 npm install
-npm run dev        # start the app at http://localhost:3000
-npm test           # run the test suite
-npm run build      # production build (must pass before deploying)
-npm run lint       # code style checks
+npm run dev          # start the app at http://localhost:3000
+npm test             # run the test suite
+npm run build:check  # production build in an isolated folder (safe while dev server runs)
+npm run build        # production build (used by Vercel)
+npm run lint         # code style checks
 ```
 
 ## Project documentation

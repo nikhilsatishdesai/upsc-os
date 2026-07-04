@@ -1,10 +1,25 @@
-import type { Difficulty } from "@/lib/stages";
+import type { Difficulty, Priority } from "@/lib/stages";
 import type { TaskSlot } from "./types";
 
 /** Central planner tuning — no magic numbers anywhere else. */
 export const PLANNER_CONFIG = {
   /** First reading of an average topic, in minutes. */
   defaultTopicMinutes: 90,
+  /** Fallbacks when neither the user nor the curated data says otherwise. */
+  defaultPriority: "medium" as Priority,
+  defaultDifficulty: "medium" as Difficulty,
+  /** Share of a topic's estimate one spaced revision takes. */
+  defaultRevisionWeight: 0.3,
+  /** Days after the previous study/revision that R1, R2, R3 fall due. */
+  revisionIntervals: [3, 10, 30] as readonly number[],
+  /** At most this share of a day's capacity goes to revisions. */
+  revisionShareCap: 0.6,
+  /** Without a weekly off day, insert a recovery day after this many
+   * consecutive study days. */
+  maxConsecutiveStudyDays: 6,
+  /** How many rotation candidates to inspect to avoid back-to-back hard
+   * topics. */
+  hardSpacingLookahead: 4,
   /** Difficulty scales the estimated time. */
   difficultyMultiplier: { easy: 0.75, medium: 1, hard: 1.3 } satisfies Record<
     Difficulty,

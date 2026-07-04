@@ -148,6 +148,91 @@ describe("planner integration", () => {
     expect(useAppStore.getState().tasks[sibling.id]).toBeUndefined();
   });
 
+  it("finishing a first reading starts the 3-day revision clock", () => {
+    const task = Object.values(useAppStore.getState().tasks).find(
+      (t) => t.status === "pending" && t.kind === "study",
+    )!;
+    // Complete all study sessions for the topic.
+    useAppStore.getState().completeTask(task.id);
+    useAppStore.getState().regeneratePlan();
+    for (const t of Object.values(useAppStore.getState().tasks)) {
+      if (t.topicId === task.topicId && t.status === "pending") {
+        useAppStore.getState().completeTask(t.id);
+      }
+    }
+    const topic = getTopicState(useAppStore.getState().topics, task.topicId);
+    expect(topic.stage).toBe("first-reading");
+    expect(topic.nextRevisionAt).toBe(addDays(todayStr(), 3));
+  });
+
+  it("completing revisions climbs the ladder: R1 → +10d, R2 → +30d, R3 → done", () => {
+    const topicId = "prelims.gs.economy.basics.inflation";
+    useAppStore.getState().setStage(topicId, "first-reading");
+    // Force the revision due today, then replan to materialise the task.
+    useAppStore.setState((state) => ({
+      topics: {
+        ...state.topics,
+        [topicId]: { ...state.topics[topicId], nextRevisionAt: todayStr() },
+      },
+    }));
+
+    const expectations: {
+      stage: string;
+      next: string | null;
+    }[] = [
+      { stage: "revision-1", next: addDays(todayStr(), 10) },
+      { stage: "revision-2", next: addDays(todayStr(), 30) },
+      { stage: "revision-3", next: null },
+    ];
+    for (const expected of expectations) {
+      useAppStore.getState().regeneratePlan();
+      const revision = Object.values(useAppStore.getState().tasks).find(
+        (t) =>
+          t.topicId === topicId &&
+          t.kind === "revision" &&
+          t.status === "pending",
+      );
+      expect(revision, `revision task for ${expected.stage}`).toBeDefined();
+      useAppStore.getState().completeTask(revision!.id);
+      const topic = getTopicState(useAppStore.getState().topics, topicId);
+      expect(topic.stage).toBe(expected.stage);
+      expect(topic.nextRevisionAt).toBe(expected.next);
+      // Pull the next revision forward so the ladder can be tested today.
+      if (expected.next) {
+        useAppStore.setState((state) => ({
+          topics: {
+            ...state.topics,
+            [topicId]: {
+              ...state.topics[topicId],
+              nextRevisionAt: todayStr(),
+            },
+          },
+        }));
+      }
+    }
+    // After R3 no further revision task is generated.
+    useAppStore.getState().regeneratePlan();
+    const leftover = Object.values(useAppStore.getState().tasks).find(
+      (t) =>
+        t.topicId === topicId &&
+        t.kind === "revision" &&
+        t.status === "pending",
+    );
+    expect(leftover).toBeUndefined();
+  });
+
+  it("manual stage changes anchor the revision clock", () => {
+    const topicId = "mains.essay.craft";
+    useAppStore.getState().setStage(topicId, "notes-made");
+    expect(
+      getTopicState(useAppStore.getState().topics, topicId).nextRevisionAt,
+    ).toBe(addDays(todayStr(), 3));
+    useAppStore.getState().setStage(topicId, "exam-ready");
+    expect(
+      getTopicState(useAppStore.getState().topics, topicId).nextRevisionAt,
+    ).toBeNull();
+  });
+
   it("marks yesterday's unfinished work as missed on replan", () => {
     const task = Object.values(useAppStore.getState().tasks).find(
       (t) => t.status === "pending",
@@ -217,5 +302,49 @@ describe("backup round-trip and migration", () => {
     expect(
       parseExportedState(JSON.stringify({ app: "upsc-os", version: 999 })).ok,
     ).toBe(false);
+  });
+
+  it("imports V2 backups: default 'medium' difficulty becomes auto, explicit choices stay", () => {
+    const v2 = JSON.stringify({
+      app: "upsc-os",
+      version: 2,
+      exportedAt: "2026-07-04T00:00:00.000Z",
+      topics: {
+        [LEAF]: {
+          stage: "first-reading",
+          studiedMinutes: 90,
+          lastStudiedAt: "2026-07-03",
+          revisionCount: 0,
+          difficulty: "medium",
+          confidence: 3,
+          estimatedMinutes: null,
+          nextRevisionAt: null,
+        },
+        "prelims.gs.economy.basics.inflation": {
+          stage: "not-started",
+          studiedMinutes: 0,
+          lastStudiedAt: null,
+          revisionCount: 0,
+          difficulty: "hard",
+          confidence: 2,
+          estimatedMinutes: 120,
+          nextRevisionAt: null,
+        },
+      },
+      displayName: "Nikhil",
+      examDate: "2027-05-30",
+      recentTopics: [],
+      planner: null,
+      tasks: {},
+      lastPlannedAt: null,
+    });
+    const result = parseExportedState(v2);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.topics[LEAF].difficulty).toBeNull();
+    expect(result.data.topics[LEAF].priority).toBeNull();
+    expect(
+      result.data.topics["prelims.gs.economy.basics.inflation"].difficulty,
+    ).toBe("hard");
   });
 });

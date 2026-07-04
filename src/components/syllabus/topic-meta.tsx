@@ -2,10 +2,14 @@
 
 import {
   DIFFICULTY_META,
+  PRIORITY_META,
+  PRIORITY_ORDER,
   getTopicState,
   type Confidence,
   type Difficulty,
+  type Priority,
 } from "@/lib/stages";
+import { curatedTopicIntel } from "@/lib/planner/intel";
 import { effectiveEstimate } from "@/lib/planner/workload";
 import { formatDateLong } from "@/lib/planner/dates";
 import { useAppStore } from "@/store/app-store";
@@ -15,12 +19,16 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Skeleton } from "@/components/ui/skeleton";
 
-/** Study metadata editor shown on a leaf topic's page. The planner and the
- * future revision engine read these values. */
+/**
+ * Study intelligence editor for a leaf topic. "Auto" values come from the
+ * curated exam-intelligence layer; anything the user picks overrides it.
+ */
 export function TopicMeta({ topicId }: { topicId: string }) {
   const mounted = useMounted();
   const topic = useAppStore((state) => getTopicState(state.topics, topicId));
   const setTopicMeta = useAppStore((state) => state.setTopicMeta);
+
+  const auto = curatedTopicIntel(topicId);
 
   return (
     <Card>
@@ -34,18 +42,48 @@ export function TopicMeta({ topicId }: { topicId: string }) {
           <Skeleton className="h-20 w-full" />
         ) : (
           <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="topic-priority">Priority</Label>
+                <NativeSelect
+                  id="topic-priority"
+                  value={topic.priority ?? ""}
+                  onChange={(e) =>
+                    setTopicMeta(topicId, {
+                      priority:
+                        e.target.value === ""
+                          ? null
+                          : (e.target.value as Priority),
+                    })
+                  }
+                >
+                  <option value="">
+                    Auto — {PRIORITY_META[auto.priority].label}
+                  </option>
+                  {PRIORITY_ORDER.map((value) => (
+                    <option key={value} value={value}>
+                      {PRIORITY_META[value].label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="topic-difficulty">Difficulty</Label>
                 <NativeSelect
                   id="topic-difficulty"
-                  value={topic.difficulty}
+                  value={topic.difficulty ?? ""}
                   onChange={(e) =>
                     setTopicMeta(topicId, {
-                      difficulty: e.target.value as Difficulty,
+                      difficulty:
+                        e.target.value === ""
+                          ? null
+                          : (e.target.value as Difficulty),
                     })
                   }
                 >
+                  <option value="">
+                    Auto — {DIFFICULTY_META[auto.difficulty].label}
+                  </option>
                   {Object.entries(DIFFICULTY_META).map(([value, meta]) => (
                     <option key={value} value={value}>
                       {meta.label}
@@ -83,7 +121,7 @@ export function TopicMeta({ topicId }: { topicId: string }) {
                     })
                   }
                 >
-                  <option value="">Default</option>
+                  <option value="">Auto — {auto.estimatedMinutes} min</option>
                   <option value="30">30 minutes</option>
                   <option value="45">45 minutes</option>
                   <option value="60">1 hour</option>
@@ -95,12 +133,14 @@ export function TopicMeta({ topicId }: { topicId: string }) {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Planner allots ~{effectiveEstimate(topic)} min for the first
-              reading.
+              Planner allots ~{effectiveEstimate(topicId, topic)} min for the
+              first reading; each spaced revision ≈
+              {Math.round(auto.revisionWeight * 100)}% of that.
               {topic.lastStudiedAt &&
                 ` Last studied ${formatDateLong(topic.lastStudiedAt)}.`}
-              {topic.revisionCount > 0 &&
-                ` Revised ${topic.revisionCount}×.`}
+              {topic.revisionCount > 0 && ` Revised ${topic.revisionCount}×.`}
+              {topic.nextRevisionAt &&
+                ` Next revision due ${formatDateLong(topic.nextRevisionAt)}.`}
             </p>
           </div>
         )}

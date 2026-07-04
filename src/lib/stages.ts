@@ -111,9 +111,67 @@ export const DIFFICULTY_META: Record<Difficulty, { label: string }> = {
   hard: { label: "Hard" },
 };
 
+export function isDifficulty(value: unknown): value is Difficulty {
+  return value === "easy" || value === "medium" || value === "hard";
+}
+
+/** Exam importance of a topic — drives scheduling order. */
+export type Priority = "critical" | "high" | "medium" | "low";
+
+export const PRIORITY_ORDER: Priority[] = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+];
+
+export const PRIORITY_META: Record<
+  Priority,
+  { label: string; rank: number; dot: string; badge: string }
+> = {
+  critical: {
+    label: "Critical",
+    rank: 0,
+    dot: "bg-red-500",
+    badge:
+      "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400",
+  },
+  high: {
+    label: "High",
+    rank: 1,
+    dot: "bg-orange-500",
+    badge:
+      "border-orange-500/30 bg-orange-500/10 text-orange-600 dark:text-orange-400",
+  },
+  medium: {
+    label: "Medium",
+    rank: 2,
+    dot: "bg-sky-500",
+    badge: "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  },
+  low: {
+    label: "Low",
+    rank: 3,
+    dot: "bg-muted-foreground/40",
+    badge: "border-border bg-secondary text-muted-foreground",
+  },
+};
+
+export function isPriority(value: unknown): value is Priority {
+  return (
+    typeof value === "string" && PRIORITY_ORDER.includes(value as Priority)
+  );
+}
+
+export function priorityRank(priority: Priority): number {
+  return PRIORITY_META[priority].rank;
+}
+
 /**
- * Everything the app (and the future revision engine) knows about one topic.
- * `nextRevisionAt` is reserved for the V3 spaced-repetition engine.
+ * Everything the app knows about one topic — the central object of the
+ * application. Fields set to null fall back to the curated intelligence
+ * layer (see src/lib/planner/intel.ts), so user choices always win but
+ * every topic has sensible exam-aware values out of the box.
  */
 export type TopicState = {
   stage: StudyStage;
@@ -122,11 +180,14 @@ export type TopicState = {
   /** YYYY-MM-DD of the last study/revision activity. */
   lastStudiedAt: string | null;
   revisionCount: number;
-  difficulty: Difficulty;
+  /** User override; null = curated intelligence value. */
+  priority: Priority | null;
+  /** User override; null = curated intelligence value. */
+  difficulty: Difficulty | null;
   confidence: Confidence;
-  /** Minutes a full first reading takes; null = planner default. */
+  /** User override in minutes; null = curated intelligence value. */
   estimatedMinutes: number | null;
-  /** Reserved for the V3 revision engine. */
+  /** Next spaced revision due date (YYYY-MM-DD); null = none scheduled. */
   nextRevisionAt: string | null;
 };
 
@@ -135,7 +196,8 @@ export const DEFAULT_TOPIC_STATE: TopicState = {
   studiedMinutes: 0,
   lastStudiedAt: null,
   revisionCount: 0,
-  difficulty: "medium",
+  priority: null,
+  difficulty: null,
   confidence: 3,
   estimatedMinutes: null,
   nextRevisionAt: null,
@@ -143,10 +205,14 @@ export const DEFAULT_TOPIC_STATE: TopicState = {
 
 export type TopicStateMap = Record<string, TopicState>;
 
-/** Read a topic's state with defaults applied for anything unset. */
+/**
+ * Read a topic's state with defaults merged in for anything unset — new
+ * fields added in later versions are backfilled automatically.
+ */
 export function getTopicState(
   topics: TopicStateMap,
   topicId: string,
 ): TopicState {
-  return topics[topicId] ?? DEFAULT_TOPIC_STATE;
+  const stored = topics[topicId];
+  return stored ? { ...DEFAULT_TOPIC_STATE, ...stored } : DEFAULT_TOPIC_STATE;
 }

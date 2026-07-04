@@ -1,0 +1,78 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  curatedTopicIntel,
+  paperShortName,
+  resolveTopicIntel,
+  subjectNameOf,
+} from "@/lib/planner/intel";
+import { DEFAULT_TOPIC_STATE } from "@/lib/stages";
+import { getAllNodes, isLeaf } from "@/lib/syllabus";
+
+const FR = "prelims.gs.polity.constitution.fundamental-rights";
+
+describe("intelligence resolution", () => {
+  it("resolves curated critical topics (foundational + repeatedly asked)", () => {
+    expect(curatedTopicIntel(FR)).toMatchObject({
+      priority: "critical",
+      difficulty: "hard",
+      estimatedMinutes: 150,
+    });
+    expect(
+      curatedTopicIntel("prelims.gs.polity.union-state.parliament").priority,
+    ).toBe("critical");
+    expect(
+      curatedTopicIntel("prelims.gs.polity.constitution.amendment").priority,
+    ).toBe("critical");
+  });
+
+  it("keeps peripheral topics lower priority", () => {
+    expect(
+      curatedTopicIntel("prelims.gs.polity.federalism-local.ut-special")
+        .priority,
+    ).toBe("medium");
+    expect(curatedTopicIntel("mains.languages.paper-b.precis").priority).toBe(
+      "low",
+    );
+  });
+
+  it("cascades sub-unit → unit → paper defaults", () => {
+    // Sub-unit default (prelims.gs.history.modern → high).
+    expect(
+      curatedTopicIntel("prelims.gs.history.modern.peasant-tribal").priority,
+    ).toBe("high");
+    // Paper default (prelims.csat → medium/easy/60).
+    expect(curatedTopicIntel("prelims.csat.reasoning")).toMatchObject({
+      priority: "medium",
+      difficulty: "easy",
+      estimatedMinutes: 60,
+    });
+  });
+
+  it("user overrides always beat curated values", () => {
+    const resolved = resolveTopicIntel(FR, {
+      ...DEFAULT_TOPIC_STATE,
+      priority: "low",
+      difficulty: "easy",
+      estimatedMinutes: 30,
+    });
+    expect(resolved.priority).toBe("low");
+    expect(resolved.difficulty).toBe("easy");
+    expect(resolved.estimatedMinutes).toBe(30);
+  });
+
+  it("every leaf resolves to complete, valid intelligence", () => {
+    for (const node of getAllNodes()) {
+      if (!isLeaf(node)) continue;
+      const intel = curatedTopicIntel(node.id);
+      expect(intel.estimatedMinutes).toBeGreaterThan(0);
+      expect(intel.revisionWeight).toBeGreaterThan(0);
+      expect(intel.revisionWeight).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("provides subject and paper labels for task cards", () => {
+    expect(paperShortName(FR)).toBe("Prelims GS");
+    expect(subjectNameOf(FR)).toBe("Indian Polity & Governance");
+  });
+});

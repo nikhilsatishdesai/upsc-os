@@ -5,17 +5,19 @@ import { getNode } from "@/lib/syllabus";
 import {
   DEFAULT_TOPIC_STATE,
   getTopicState,
+  isDifficulty,
+  isPriority,
   isStudyStage,
   revisionCountForStage,
   stageIndex,
   type Confidence,
-  type Difficulty,
   type StudyStage,
   type TopicState,
   type TopicStateMap,
 } from "@/lib/stages";
 import {
   effectiveEstimate,
+  needsRevisions,
   remainingStudyMinutes,
 } from "@/lib/planner/workload";
 import { generateSchedule } from "@/lib/planner/scheduler";
@@ -27,7 +29,7 @@ import type {
   TaskSlot,
 } from "@/lib/planner/types";
 
-export const STORE_VERSION = 2;
+export const STORE_VERSION = 3;
 const MAX_RECENT = 8;
 
 type AppState = {
@@ -48,7 +50,10 @@ type AppState = {
   setTopicMeta: (
     topicId: string,
     meta: Partial<
-      Pick<TopicState, "difficulty" | "confidence" | "estimatedMinutes">
+      Pick<
+        TopicState,
+        "priority" | "difficulty" | "confidence" | "estimatedMinutes"
+      >
     >,
   ) => void;
   setDisplayName: (name: string) => void;
@@ -100,6 +105,24 @@ function withTopic(
   return { ...topics, [topicId]: update(getTopicState(topics, topicId)) };
 }
 
+/**
+ * When the next spaced revision falls due for a topic that was last
+ * studied today: 3 / 10 / 30 days out depending on revisions already done.
+ * Null when no further spaced revision applies.
+ */
+function nextRevisionDate(
+  stage: StudyStage,
+  revisionCount: number,
+  from: string,
+): string | null {
+  const intervals = PLANNER_CONFIG.revisionIntervals;
+  const eligible =
+    stageIndex(stage) >= stageIndex("first-reading") &&
+    stageIndex(stage) < stageIndex("revision-3") &&
+    revisionCount < intervals.length;
+  return eligible ? addDays(from, intervals[revisionCount]) : null;
+}
+
 function regenerate(state: {
   planner: PlannerSettings | null;
   topics: TopicStateMap;
@@ -112,26 +135,39 @@ function regenerate(state: {
     if (task.status === "pending" && task.date < today) {
       // Missed work: keep for history, its topic re-enters the pool below.
       tasks[task.id] = { ...task, status: "missed" };
-    } else if (
-      task.status === "pending" &&
-      (task.createdBy === "auto" ||
-        remainingStudyMinutes(getTopicState(state.topics, task.topicId)) <= 0)
-    ) {
-      // Auto tasks are regenerated; pinned tasks for finished topics drop.
       continue;
-    } else {
-      tasks[task.id] = task;
     }
+    if (task.status === "pending") {
+      const topic = getTopicState(state.topics, task.topicId);
+      const stale =
+        task.kind === "revision"
+          ? !needsRevisions(topic)
+          : remainingStudyMinutes(task.topicId, topic) <= 0;
+      // Auto tasks are regenerated; pinned tasks for finished work drop.
+      if (task.createdBy === "auto" || stale) continue;
+    }
+    tasks[task.id] = task;
   }
 
   if (state.planner) {
-    const pinned = Object.values(tasks).filter(
-      (task) => task.status === "pending" && task.date >= today,
-    );
+    const pinned: PlannedTask[] = [];
+    const usedMinutesByDate = new Map<string, number>();
+    for (const task of Object.values(tasks)) {
+      if (task.status === "pending" && task.date >= today) {
+        pinned.push(task);
+      } else if (task.status === "completed" && task.date >= today) {
+        // Work already done today consumed real capacity.
+        usedMinutesByDate.set(
+          task.date,
+          (usedMinutesByDate.get(task.date) ?? 0) + task.minutes,
+        );
+      }
+    }
     for (const task of generateSchedule({
       settings: state.planner,
       topics: state.topics,
       pinnedTasks: pinned,
+      usedMinutesByDate,
       fromDate: today,
     })) {
       tasks[task.id] = task;
@@ -150,20 +186,28 @@ export const useAppStore = create<AppState>()(
         set((state) => {
           const today = todayStr();
           return {
-            topics: withTopic(state.topics, topicId, (current) => ({
-              ...current,
-              stage,
-              studiedMinutes:
-                stage === "not-started" ? 0 : current.studiedMinutes,
-              lastStudiedAt:
-                stageIndex(stage) > stageIndex(current.stage)
-                  ? today
-                  : current.lastStudiedAt,
-              revisionCount: Math.max(
-                stage === "not-started" ? 0 : current.revisionCount,
-                revisionCountForStage(stage),
-              ),
-            })),
+            topics: withTopic(state.topics, topicId, (current) => {
+              const revisionCount =
+                stage === "not-started"
+                  ? 0
+                  : Math.max(
+                      current.revisionCount,
+                      revisionCountForStage(stage),
+                    );
+              return {
+                ...current,
+                stage,
+                studiedMinutes:
+                  stage === "not-started" ? 0 : current.studiedMinutes,
+                lastStudiedAt:
+                  stageIndex(stage) > stageIndex(current.stage)
+                    ? today
+                    : current.lastStudiedAt,
+                revisionCount,
+                // Manual stage changes (re)anchor the spaced-revision clock.
+                nextRevisionAt: nextRevisionDate(stage, revisionCount, today),
+              };
+            }),
           };
         }),
 
@@ -199,15 +243,44 @@ export const useAppStore = create<AppState>()(
           if (!task || task.status !== "pending") return state;
           const today = todayStr();
           const topics = withTopic(state.topics, task.topicId, (current) => {
+            if (task.kind === "revision") {
+              // Climb the revision ladder and schedule the next one.
+              const revisionCount = Math.min(
+                current.revisionCount + 1,
+                PLANNER_CONFIG.revisionIntervals.length,
+              );
+              const ladder: StudyStage[] = [
+                "revision-1",
+                "revision-2",
+                "revision-3",
+              ];
+              const promoted = ladder[revisionCount - 1];
+              const stage =
+                stageIndex(promoted) > stageIndex(current.stage)
+                  ? promoted
+                  : current.stage;
+              return {
+                ...current,
+                revisionCount,
+                stage,
+                lastStudiedAt: today,
+                nextRevisionAt: nextRevisionDate(stage, revisionCount, today),
+              };
+            }
             const studiedMinutes = current.studiedMinutes + task.minutes;
             const finished =
               current.stage === "not-started" &&
-              studiedMinutes >= effectiveEstimate(current);
+              studiedMinutes >= effectiveEstimate(task.topicId, current);
+            const stage = finished ? "first-reading" : current.stage;
             return {
               ...current,
               studiedMinutes,
               lastStudiedAt: today,
-              stage: finished ? "first-reading" : current.stage,
+              stage,
+              // Finishing the first reading starts the revision clock.
+              nextRevisionAt: finished
+                ? nextRevisionDate(stage, current.revisionCount, today)
+                : current.nextRevisionAt,
             };
           });
           return {
@@ -238,7 +311,32 @@ export const useAppStore = create<AppState>()(
           if (!task || task.status === "pending" || task.status === "missed")
             return state;
           let topics = state.topics;
-          if (task.status === "completed") {
+          if (task.status === "completed" && task.kind === "revision") {
+            topics = withTopic(state.topics, task.topicId, (current) => {
+              const revisionCount = Math.max(0, current.revisionCount - 1);
+              // Conservative revert: step back one revision stage; the
+              // exact prior stage (e.g. notes-made) can be reset by hand.
+              const ladder: StudyStage[] = [
+                "first-reading",
+                "revision-1",
+                "revision-2",
+              ];
+              const stage =
+                revisionCountForStage(current.stage) > revisionCount
+                  ? ladder[revisionCount]
+                  : current.stage;
+              return {
+                ...current,
+                revisionCount,
+                stage,
+                nextRevisionAt: nextRevisionDate(
+                  stage,
+                  revisionCount,
+                  todayStr(),
+                ),
+              };
+            });
+          } else if (task.status === "completed") {
             topics = withTopic(state.topics, task.topicId, (current) => ({
               ...current,
               studiedMinutes: Math.max(
@@ -248,7 +346,13 @@ export const useAppStore = create<AppState>()(
               // Only undo an automatic first-reading promotion, never a
               // stage the user set by hand beyond it.
               stage:
-                current.stage === "first-reading" ? "not-started" : current.stage,
+                current.stage === "first-reading"
+                  ? "not-started"
+                  : current.stage,
+              nextRevisionAt:
+                current.stage === "first-reading"
+                  ? null
+                  : current.nextRevisionAt,
             }));
           }
           return {
@@ -343,10 +447,14 @@ export const useAppStore = create<AppState>()(
       version: STORE_VERSION,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted, version) => {
+        let state = persisted as Partial<AppState>;
         if (version < 2) {
-          return migrateV1(persisted);
+          state = migrateV1(persisted);
         }
-        return persisted as Partial<AppState>;
+        if (version < 3) {
+          state = migrateV2ToV3(state);
+        }
+        return state;
       },
       partialize: (state) => ({
         topics: state.topics,
@@ -408,6 +516,25 @@ function migrateV1(persisted: unknown): Partial<AppState> {
   };
 }
 
+/**
+ * V2 → V3: difficulty stored as a concrete value becomes an override-only
+ * field. "medium" (the old always-on default) converts to null so the
+ * curated intelligence layer takes over; explicit easy/hard choices stay.
+ */
+function migrateV2ToV3(state: Partial<AppState>): Partial<AppState> {
+  const topics: TopicStateMap = {};
+  for (const [id, topic] of Object.entries(state.topics ?? {})) {
+    topics[id] = {
+      ...DEFAULT_TOPIC_STATE,
+      ...topic,
+      priority: topic.priority ?? null,
+      difficulty:
+        (topic.difficulty as string) === "medium" ? null : topic.difficulty,
+    };
+  }
+  return { ...state, topics };
+}
+
 /* ------------------------------------------------------------------ */
 /* Backup export / import                                              */
 /* ------------------------------------------------------------------ */
@@ -429,17 +556,22 @@ export function exportStateToJSON(): string {
   return JSON.stringify(data, null, 2);
 }
 
-const DIFFICULTIES: Difficulty[] = ["easy", "medium", "hard"];
 const CONFIDENCES: Confidence[] = [1, 2, 3, 4, 5];
 const TASK_STATUSES = ["pending", "completed", "skipped", "missed"];
 
-function sanitizeTopics(raw: unknown): TopicStateMap {
+function sanitizeTopics(raw: unknown, fileVersion: number): TopicStateMap {
   const topics: TopicStateMap = {};
   if (typeof raw !== "object" || raw === null) return topics;
   for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
     if (!getNode(id) || typeof value !== "object" || value === null) continue;
     const t = value as Record<string, unknown>;
     if (!isStudyStage(t.stage)) continue;
+    // In V2 files "medium" difficulty was the stored default, not a choice.
+    const difficulty =
+      isDifficulty(t.difficulty) &&
+      !(fileVersion < 3 && t.difficulty === "medium")
+        ? t.difficulty
+        : null;
     topics[id] = {
       stage: t.stage,
       studiedMinutes:
@@ -451,9 +583,8 @@ function sanitizeTopics(raw: unknown): TopicStateMap {
         typeof t.revisionCount === "number" && t.revisionCount >= 0
           ? t.revisionCount
           : revisionCountForStage(t.stage),
-      difficulty: DIFFICULTIES.includes(t.difficulty as Difficulty)
-        ? (t.difficulty as Difficulty)
-        : "medium",
+      priority: isPriority(t.priority) ? t.priority : null,
+      difficulty,
       confidence: CONFIDENCES.includes(t.confidence as Confidence)
         ? (t.confidence as Confidence)
         : 3,
@@ -556,7 +687,7 @@ export function parseExportedState(
   if (obj.version < 2) {
     topics = migrateV1(obj).topics ?? {};
   } else {
-    topics = sanitizeTopics(obj.topics);
+    topics = sanitizeTopics(obj.topics, obj.version);
   }
 
   return {

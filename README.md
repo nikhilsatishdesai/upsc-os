@@ -2,15 +2,19 @@
 
 **An intelligent operating system for UPSC aspirants** — plan, study, revise, practice, and (soon) get AI-powered mentorship across the entire Prelims → Mains → Interview journey.
 
-> Version 2 (Compass) — local-first: all your data stays in your browser. No account needed.
+> Version 3 (Intelligence Engine) — local-first: all your data stays in your browser. No account needed.
 
-## What it does today (V1 + V2)
+## What it does today (V1 + V2 + V3)
 
-- **Adaptive study planner** — answers eight questions about your routine, then builds a day-by-day plan for the entire remaining syllabus: mixed subjects, balanced papers, realistic days. Miss a day and it redistributes the work automatically without overloading you
+- **Intelligent study planner** — an adaptive engine, not a timetable: it knows which topics UPSC actually asks (Fundamental Rights, Parliament, the monsoon… are Critical), schedules them first, mixes subjects, never stacks two hard sessions back-to-back, and redistributes missed work automatically without overloading any day
+- **Automatic spaced revisions** — finish a topic and Revision 1/2/3 appear in your plan 3, 10 and 30 days later, no manual scheduling ever
+- **Completion forecast & pace warnings** — remaining workload vs your real capacity, expected completion date, and an explicit warning if your pace won't finish before Prelims
+- **Burnout prevention** — automatic recovery days plus a sustainability indicator (load, streak, hard-material share)
+- **Today's Mission** — daily workspace with progress ring, expected finish time, and priority/revision session counts
 - **Task management** — complete, skip, split, merge, move or drag sessions between days; moved tasks are pinned and survive replanning
-- **Complete UPSC syllabus browser** — Prelims (GS + CSAT) and Mains (Essay, GS1–GS4, qualifying papers) as an expandable tree of 235 trackable topics
+- **Complete UPSC syllabus browser** — Prelims (GS + CSAT) and Mains (Essay, GS1–GS4, qualifying papers) as an expandable tree of 235 trackable topics, each with priority/difficulty/time controls
 - **Seven-stage study lifecycle** — Not started → First reading → Notes made → Revision 1–3 → Exam ready, with honest weighted preparation percentages
-- **Analytics** — study streak, weekly/monthly completion, consistency, hours chart, workload vs capacity, subject-wise preparation
+- **Analytics** — streak, weekly/monthly completion, consistency, hours chart, subject & difficulty distribution, revision ratio, forecast, burnout
 - **Dashboard** — Prelims & Mains countdowns, today's plan with one-tap completion, recent activity, per-paper progress
 - **Global search** — press `Ctrl+K` (or `⌘K`) anywhere to jump to any topic
 - **Premium UI** — responsive on phone/tablet/desktop, light & dark mode

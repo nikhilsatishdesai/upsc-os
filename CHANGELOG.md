@@ -2,6 +2,26 @@
 
 All notable changes to UPSC OS are documented here.
 
+## [0.3.0] — V3 "Intelligence Engine" — 2026-07-04 (code complete; deployment pending)
+
+### Added
+- **Intelligent priority engine** — every topic carries exam-aware metadata (priority, difficulty, estimated time, revision weight) from a curated intelligence layer built on UPSC asking patterns; Fundamental Rights, Parliament, Basic Structure, Gandhian era, the monsoon etc. are Critical and get scheduled first. Users can override any value per topic ("Auto" restores the curated value)
+- **Automatic revision engine** — finishing a topic's first reading schedules Revision 1 after 3 days, then Revision 2 after 10 and Revision 3 after 30; revision sessions appear in the plan automatically (capped at 60% of any day) and completing them climbs the learning ladder
+- **Difficulty balancing** — the scheduler never places two hard sessions back-to-back when an alternative exists
+- **Burnout prevention** — automatic recovery day after 6 consecutive study days (when no weekly off day is set) and a burnout indicator (load, streak, hard-material share)
+- **Study capacity engine & completion forecast** — weekly/monthly capacity, remaining workload including future revisions, days required, expected completion date, and an explicit warning (planner banner + analytics) when the current pace cannot finish before Prelims
+- **Today's Mission** — progress ring, planned/remaining hours, expected finish time, priority & revision session counts
+- **Smarter task cards** — priority badge, paper, subject, learning stage, difficulty and revision number/due date on every task
+- **Weekly intelligence** — Heavy/Light/Revision/Rest day labels, estimated completion date, missed-work redistribution notice
+- **Expanded analytics** — subject distribution, difficulty distribution, revision ratio, burnout indicator, completion forecast
+- Setup form now warns when session count × duration is less than the stated daily hours
+
+### Changed
+- Store version 3: priority added; difficulty/estimate become override-only fields (old default "medium" now means "Auto"); V1/V2 data and backup files migrate automatically
+
+### Fixed
+- Render loop when topic state was selected as a whole object (stable-reference cache + regression tests)
+
 ## [0.2.0] — V2 "Compass" (Study Planner) — 2026-07-04 (code complete; deployment pending)
 
 ### Added

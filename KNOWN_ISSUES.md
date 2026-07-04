@@ -13,10 +13,12 @@
 - **End-to-end (browser automation) tests deferred to V5** when auth flows arrive; V1 ships with 23 unit/data-integrity tests plus a founder manual test checklist (see DEPLOYMENT.md).
 - **Prelims topic breakdown:** UPSC publishes Prelims GS as broad headings; the app expands them into the standard study breakdown. Mains papers follow the official syllabus text exactly.
 
-## Accepted limitations (by design in V2)
+## Accepted limitations (by design in V2/V3)
 
-- **Planner schedules first readings only.** Notes-making and revisions are advanced manually on topic pages; the V3 revision engine will schedule `revision` tasks automatically (the data model and task schema are already in place).
-- **The plan is a rolling 14-day window**, regenerated daily — long-range calendar views come with V3+.
+- **The plan is a rolling 14-day window**, regenerated daily — long-range calendar views come later.
+- **"Exam ready" is a manual call.** The engine schedules three spaced revisions automatically; declaring a topic exam-ready after them is the user's confidence decision.
+- **Notes-making is advanced manually** on topic pages (the Notes module arrives in a later phase).
+- **Curated priorities are a first pass.** They encode standard UPSC weightage patterns; per-topic overrides are available on every topic page, and the dataset (`src/data/topic-intel.ts`) will keep improving with the PYQ module.
 - **Migration note:** preparation percentages dropped after V2 by design — the old scale treated "completed" as 100%, the new scale reserves 100% for "Exam ready".
 
 ## Non-issues (documented so they aren't re-investigated)

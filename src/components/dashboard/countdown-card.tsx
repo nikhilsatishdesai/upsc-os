@@ -3,22 +3,16 @@
 import Link from "next/link";
 import { CalendarDays, ArrowRight } from "lucide-react";
 
+import { diffDays, formatDateLong, todayStr } from "@/lib/planner/dates";
 import { useAppStore } from "@/store/app-store";
 import { useMounted } from "@/hooks/use-mounted";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function daysUntil(dateString: string): number {
-  const [year, month, day] = dateString.split("-").map(Number);
-  const target = new Date(year, month - 1, day);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
-}
-
 export function CountdownCard() {
   const mounted = useMounted();
   const examDate = useAppStore((state) => state.examDate);
+  const mainsDate = useAppStore((state) => state.planner?.mainsDate ?? "");
 
   return (
     <Card>
@@ -29,54 +23,55 @@ export function CountdownCard() {
       </CardHeader>
       <CardContent>
         {!mounted ? (
-          <Skeleton className="h-10 w-32" />
-        ) : examDate === "" ? (
+          <Skeleton className="h-14 w-40" />
+        ) : examDate === "" && mainsDate === "" ? (
           <div>
             <p className="text-sm text-muted-foreground">
-              Set your target exam date to see the countdown.
+              Set your target exam dates to see the countdown.
             </p>
             <Link
-              href="/settings"
+              href="/planner"
               className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
             >
-              Set exam date <ArrowRight className="h-3.5 w-3.5" />
+              Set up the planner <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
         ) : (
-          <CountdownValue examDate={examDate} />
+          <div className="space-y-2.5">
+            {examDate && <CountdownRow label="Prelims" date={examDate} />}
+            {mainsDate && <CountdownRow label="Mains" date={mainsDate} />}
+          </div>
         )}
       </CardContent>
     </Card>
   );
 }
 
-function CountdownValue({ examDate }: { examDate: string }) {
-  const days = daysUntil(examDate);
-  const formatted = new Date(examDate + "T00:00:00").toLocaleDateString(
-    "en-IN",
-    { day: "numeric", month: "long", year: "numeric" },
-  );
-
-  if (days < 0) {
-    return (
-      <div>
-        <p className="text-3xl font-semibold tracking-tight">Exam over</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {formatted} has passed —{" "}
-          <Link href="/settings" className="text-primary hover:underline">
-            set your next target
-          </Link>
-        </p>
-      </div>
-    );
-  }
+function CountdownRow({ label, date }: { label: string; date: string }) {
+  const days = diffDays(todayStr(), date);
 
   return (
-    <div>
-      <p className="text-3xl font-semibold tabular-nums tracking-tight">
-        {days === 0 ? "Today" : `${days} day${days === 1 ? "" : "s"}`}
+    <div className="flex items-baseline justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {formatDateLong(date)}
+        </p>
+      </div>
+      <p className="shrink-0 text-2xl font-semibold tabular-nums tracking-tight">
+        {days < 0 ? (
+          <span className="text-base text-muted-foreground">passed</span>
+        ) : days === 0 ? (
+          "Today"
+        ) : (
+          <>
+            {days}
+            <span className="ml-1 text-sm font-normal text-muted-foreground">
+              days
+            </span>
+          </>
+        )}
       </p>
-      <p className="mt-1 text-sm text-muted-foreground">until {formatted}</p>
     </div>
   );
 }

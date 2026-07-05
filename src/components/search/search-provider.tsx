@@ -2,7 +2,18 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { FileText } from "lucide-react";
+import {
+  BookOpen,
+  FileQuestion,
+  FileText,
+  Layers,
+  Library,
+  Newspaper,
+  NotebookPen,
+  Tags,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 
 import {
   CommandDialog,
@@ -13,35 +24,41 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { navItems } from "@/components/layout/nav-items";
-import { getAllNodes, getNode, type SyllabusNode } from "@/lib/syllabus";
+import { getNode, type SyllabusNode } from "@/lib/syllabus";
+import {
+  HIT_TYPE_LABELS,
+  searchKnowledge,
+  type KnowledgeHit,
+  type KnowledgeHitType,
+} from "@/lib/knowledge/search";
 import { useAppStore } from "@/store/app-store";
+import { useKnowledgeStore } from "@/store/knowledge-store";
+import { cn } from "@/lib/utils";
 
-const MAX_TOPIC_RESULTS = 12;
-const allNodes = getAllNodes();
+const HIT_ICONS: Record<KnowledgeHitType, LucideIcon> = {
+  topic: FileText,
+  note: NotebookPen,
+  "quick-note": Zap,
+  keyword: Tags,
+  flashcard: Layers,
+  pyq: FileQuestion,
+  resource: Library,
+  "current-affair": Newspaper,
+  book: BookOpen,
+};
 
-/**
- * Rank a node against the query: lower is better, null means no match.
- * Title prefix beats title substring beats breadcrumb-path match.
- */
-function scoreNode(node: SyllabusNode, query: string): number | null {
-  const title = node.title.toLowerCase();
-  if (title.startsWith(query)) return 0;
-  if (title.includes(query)) return 1;
-  if (node.pathTitles.join(" ").toLowerCase().includes(query)) return 2;
-  return null;
-}
-
-function searchTopics(query: string): SyllabusNode[] {
-  const scored: { node: SyllabusNode; score: number }[] = [];
-  for (const node of allNodes) {
-    const score = scoreNode(node, query);
-    if (score !== null) scored.push({ node, score });
-  }
-  scored.sort(
-    (a, b) => a.score - b.score || a.node.title.localeCompare(b.node.title),
-  );
-  return scored.slice(0, MAX_TOPIC_RESULTS).map((entry) => entry.node);
-}
+/** Filter chips shown while searching ("All" = no filter). */
+const FILTERS: (KnowledgeHitType | null)[] = [
+  null,
+  "topic",
+  "note",
+  "keyword",
+  "flashcard",
+  "pyq",
+  "resource",
+  "current-affair",
+  "book",
+];
 
 type SearchContextValue = {
   open: boolean;
@@ -97,20 +114,71 @@ function SearchCommandDialog({
   go: (href: string) => void;
 }) {
   const [query, setQuery] = React.useState("");
+  const [filter, setFilter] = React.useState<KnowledgeHitType | null>(null);
   const recentTopics = useAppStore((state) => state.recentTopics);
+
+  const richNotes = useKnowledgeStore((state) => state.richNotes);
+  const quickNotes = useKnowledgeStore((state) => state.quickNotes);
+  const flashcards = useKnowledgeStore((state) => state.flashcards);
+  const keywords = useKnowledgeStore((state) => state.keywords);
+  const bookRefs = useKnowledgeStore((state) => state.bookRefs);
+  const resources = useKnowledgeStore((state) => state.resources);
+  const pyqs = useKnowledgeStore((state) => state.pyqs);
+  const currentAffairs = useKnowledgeStore((state) => state.currentAffairs);
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
     // Clear the query on close so the palette always opens fresh.
-    if (!nextOpen) setQuery("");
+    if (!nextOpen) {
+      setQuery("");
+      setFilter(null);
+    }
   };
 
-  const q = query.trim().toLowerCase();
-  const topicResults = q === "" ? [] : searchTopics(q);
+  const q = query.trim();
+  const hits = React.useMemo(() => {
+    if (q === "") return [];
+    return searchKnowledge(
+      {
+        richNotes,
+        quickNotes,
+        flashcards,
+        keywords,
+        bookRefs,
+        resources,
+        pyqs,
+        currentAffairs,
+      },
+      q,
+      filter === null ? new Set() : new Set([filter]),
+    );
+  }, [
+    q,
+    filter,
+    richNotes,
+    quickNotes,
+    flashcards,
+    keywords,
+    bookRefs,
+    resources,
+    pyqs,
+    currentAffairs,
+  ]);
+
+  const grouped = React.useMemo(() => {
+    const groups = new Map<KnowledgeHitType, KnowledgeHit[]>();
+    for (const hit of hits) {
+      groups.set(hit.type, [...(groups.get(hit.type) ?? []), hit]);
+    }
+    return groups;
+  }, [hits]);
+
   const pageResults =
     q === ""
       ? navItems
-      : navItems.filter((item) => item.title.toLowerCase().includes(q));
+      : navItems.filter((item) =>
+          item.title.toLowerCase().includes(q.toLowerCase()),
+        );
   const recentNodes =
     q === ""
       ? recentTopics
@@ -120,34 +188,78 @@ function SearchCommandDialog({
       : [];
 
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={handleOpenChange}
-      title="Search UPSC OS"
-    >
+    <CommandDialog open={open} onOpenChange={handleOpenChange} title="Search UPSC OS">
       <CommandInput
-        placeholder="Search syllabus topics and pages…"
+        placeholder="Search topics, notes, cards, PYQs, keywords…"
         value={query}
         onValueChange={setQuery}
       />
+      {q !== "" && (
+        <div className="flex flex-wrap gap-1 border-b px-3 py-2">
+          {FILTERS.map((value) => (
+            <button
+              key={value ?? "all"}
+              type="button"
+              onClick={() => setFilter(value)}
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
+                filter === value
+                  ? "border-primary/50 bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {value === null ? "All" : HIT_TYPE_LABELS[value]}
+            </button>
+          ))}
+        </div>
+      )}
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 
         {recentNodes.length > 0 && (
           <CommandGroup heading="Recent topics">
             {recentNodes.map((node) => (
-              <TopicItem key={`recent-${node.id}`} node={node} go={go} />
+              <CommandItem
+                key={`recent-${node.id}`}
+                value={`recent-${node.id}`}
+                onSelect={() => go(`/syllabus/${node.id}`)}
+                className="!items-start"
+              >
+                <FileText className="mt-0.5" />
+                <span className="min-w-0">
+                  <span className="block truncate">{node.title}</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {node.pathTitles.join(" · ")}
+                  </span>
+                </span>
+              </CommandItem>
             ))}
           </CommandGroup>
         )}
 
-        {topicResults.length > 0 && (
-          <CommandGroup heading="Syllabus topics">
-            {topicResults.map((node) => (
-              <TopicItem key={node.id} node={node} go={go} />
-            ))}
-          </CommandGroup>
-        )}
+        {[...grouped.entries()].map(([type, typeHits]) => {
+          const Icon = HIT_ICONS[type];
+          return (
+            <CommandGroup key={type} heading={HIT_TYPE_LABELS[type]}>
+              {typeHits.map((hit, index) => (
+                <CommandItem
+                  key={`${type}-${index}-${hit.topicId}`}
+                  value={`${type}-${index}-${hit.title}`}
+                  onSelect={() => go(`/syllabus/${hit.topicId}`)}
+                  className="!items-start"
+                >
+                  <Icon className="mt-0.5" />
+                  <span className="min-w-0">
+                    <span className="block truncate">{hit.title}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {hit.subtitle}
+                    </span>
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          );
+        })}
 
         {pageResults.length > 0 && (
           <CommandGroup heading="Pages">
@@ -165,31 +277,5 @@ function SearchCommandDialog({
         )}
       </CommandList>
     </CommandDialog>
-  );
-}
-
-function TopicItem({
-  node,
-  go,
-}: {
-  node: SyllabusNode;
-  go: (href: string) => void;
-}) {
-  return (
-    <CommandItem
-      value={node.id}
-      onSelect={() => go(`/syllabus/${node.id}`)}
-      className="!items-start"
-    >
-      <FileText className="mt-0.5" />
-      <span className="min-w-0">
-        <span className="block truncate">{node.title}</span>
-        {node.pathTitles.length > 0 && (
-          <span className="block truncate text-xs text-muted-foreground">
-            {node.pathTitles.join(" · ")}
-          </span>
-        )}
-      </span>
-    </CommandItem>
   );
 }

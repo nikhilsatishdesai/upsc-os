@@ -1,5 +1,17 @@
 import { KNOWLEDGE_CONFIG } from "./config";
-import type { Flashcard, TimelineEvent } from "./types";
+import { countWords, readingMinutes } from "./notes";
+import type {
+  Bookmark,
+  BookReference,
+  CurrentAffair,
+  Flashcard,
+  Keyword,
+  Pyq,
+  QuickNote,
+  Resource,
+  RichNote,
+  TimelineEvent,
+} from "./types";
 import type { PlannedTask } from "@/lib/planner/types";
 
 /** A card is due when never reviewed or unreviewed for the config window. */
@@ -86,6 +98,75 @@ export function topicTimeline(
     }
   }
   return entries.sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit);
+}
+
+export type KnowledgeStats = {
+  notes: number;
+  /** Writing statistics. */
+  words: number;
+  /** Reading statistics — minutes to re-read all notes. */
+  readMinutes: number;
+  quickNotes: number;
+  cards: number;
+  dueCards: number;
+  keywords: number;
+  pyqs: number;
+  solvedPyqs: number;
+  affairs: number;
+  resources: number;
+  books: number;
+  bookmarks: number;
+  /** Everything countable, for the growth figure. */
+  totalItems: number;
+};
+
+/** Knowledge-base growth, reading and writing statistics. */
+export function knowledgeStats(source: {
+  richNotes: Record<string, RichNote>;
+  quickNotes: Record<string, QuickNote>;
+  flashcards: Record<string, Flashcard>;
+  keywords: Record<string, Keyword>;
+  bookRefs: Record<string, BookReference>;
+  resources: Record<string, Resource>;
+  pyqs: Record<string, Pyq>;
+  currentAffairs: Record<string, CurrentAffair>;
+  bookmarks: Record<string, Bookmark>;
+}): KnowledgeStats {
+  const notesList = Object.values(source.richNotes).filter(
+    (note) => note.markdown.trim() !== "",
+  );
+  const words = notesList.reduce(
+    (sum, note) => sum + countWords(note.markdown),
+    0,
+  );
+  const pyqsList = Object.values(source.pyqs);
+  const stats = {
+    notes: notesList.length,
+    words,
+    readMinutes: readingMinutes(words),
+    quickNotes: Object.keys(source.quickNotes).length,
+    cards: Object.keys(source.flashcards).length,
+    dueCards: dueFlashcards(source.flashcards).length,
+    keywords: Object.keys(source.keywords).length,
+    pyqs: pyqsList.length,
+    solvedPyqs: pyqsList.filter((pyq) => pyq.solved).length,
+    affairs: Object.keys(source.currentAffairs).length,
+    resources: Object.keys(source.resources).length,
+    books: Object.keys(source.bookRefs).length,
+    bookmarks: Object.keys(source.bookmarks).length,
+  };
+  return {
+    ...stats,
+    totalItems:
+      stats.notes +
+      stats.quickNotes +
+      stats.cards +
+      stats.keywords +
+      stats.pyqs +
+      stats.affairs +
+      stats.resources +
+      stats.books,
+  };
 }
 
 export type StudyHistoryRow = { label: string; value: string };

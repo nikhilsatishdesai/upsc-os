@@ -8,6 +8,7 @@ import { InsightsCard } from "@/components/dashboard/insights-card";
 import { PapersCard } from "@/components/dashboard/papers-card";
 import { RecentActivityCard } from "@/components/dashboard/recent-activity-card";
 import { RecentTopicsCard } from "@/components/dashboard/recent-topics-card";
+import { KnowledgeCard } from "@/components/dashboard/knowledge-card";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -32,6 +33,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <KnowledgeCard />
         <RecentTopicsCard />
       </div>
     </div>

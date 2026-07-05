@@ -2,6 +2,28 @@
 
 All notable changes to UPSC OS are documented here.
 
+## [0.4.0] — Phase A "Intelligence Core" — 2026-07-05 (code complete; deployment pending)
+
+### Added
+- **Dynamic priority engine** — every topic's priority score now evolves continuously: curated exam importance + confidence gap + revision urgency + postponement history + exam proximity. Avoided topics rise; completed and revised topics settle naturally. Every component carries a reason
+- **Confidence decay model** — effective confidence derives from your rating plus completed revisions, minus idle time, postponements and difficulty; it feeds priority, forecasting, recommendations and analytics
+- **Behaviour history** — topics record completed, missed and postponed sessions; skips, later-moves and missed days all feed the engines
+- **Continuity scheduling** — partially-read topics finish first instead of waiting for their subject's rotation turn
+- **Planner explanation system** — "Why this session?" on every task reconstructs the exact reasons (priority factors, revision due dates, continuity, load balancing); Today's Mission shows a one-line plan rationale
+- **Forecast v2** — blends stated capacity with your observed pace (14-day window); probability of finishing before Prelims and Mains (documented logistic model), expected completion date with a confidence interval
+- **Recommendation engine** — continuously updated guidance that always explains why: add N min/day, revision backlog growing, burnout risk, strong week, ahead of schedule, paper confidence falling, vacation adjustments
+- **Study health score** — 7 weighted components (consistency, completion, revision, sustainability, confidence, pace, stability) with a full breakdown; recorded daily for trends
+- **Burnout prevention v2** — capacity damping driven by real fatigue (streaks + hard work actually completed), tunable sensitivity; recovery days; the display indicator remains load-aware
+- **Planner settings expansion** — custom revision intervals, max hard sessions/day, easy-first mornings, weekend strategy (light / revision-focused), vacation period, planner aggressiveness, burnout sensitivity — all applied to future planning immediately
+- **Dashboard Insights card** — health badge + top recommendations with reasons
+- **Predictive analytics** — probabilities, observed vs planned pace, health/burnout trend charts from daily snapshots, workload-cleared metric, average daily output, missed-session history, weekly planner efficiency
+
+### Changed
+- Store version 4 (settings gain defaults on read; daily snapshots with 60-day retention). V1–V3 data and backups migrate automatically; old settings keep working untouched
+
+### Fixed
+- Burnout damping no longer feeds on the size of the freshly generated plan (self-shrinking feedback loop); recommendations likewise key off real fatigue
+
 ## [0.3.0] — V3 "Intelligence Engine" — 2026-07-04 (code complete; deployment pending)
 
 ### Added

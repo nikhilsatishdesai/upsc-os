@@ -1,66 +1,72 @@
 # PROJECT_STATE.md
 
 > **Purpose:** If a new Claude session opens, reading this file should allow work to continue immediately.
-> **Last updated:** 2026-07-04
+> **Last updated:** 2026-07-05
 
 ## Current Milestone
 
-**V3 "Intelligence Engine" — CODE-COMPLETE.** All milestones committed and live-verified. **Still NOT deployed** — founder must create GitHub + Vercel accounts (DEPLOYMENT.md has click-by-click steps). This remains the single blocking item from V1.
+**Phase A "Intelligence Core" — CODE-COMPLETE.** All milestones committed and live-verified. **Still NOT deployed** — founder must create GitHub + Vercel accounts (DEPLOYMENT.md has click-by-click steps). This remains the single blocking item since V1.
 
-V3 milestones (each one git commit, restorable):
-1. ✅ Intelligence engine core: priority engine + curated exam intel + automatic revisions + difficulty balancing + store v3
-2. ✅ Study capacity engine, completion forecast, burnout indicator, expanded analytics
-3. ✅ Intelligent UI: smart task cards, Today's Mission, weekly intelligence
-4. ✅ Render-loop fix (stable selector references) + setup capacity hint + docs
+Phase A milestones (each one git commit, restorable):
+1. ✅ Adaptive core: dynamic priority, confidence decay, behaviour history, settings expansion, scheduler v3, store v4
+2. ✅ Forecast v2 (probabilities, observed pace, CI), recommendation engine, study health score, daily snapshots
+3. ✅ Explainability (+Why-this-session), dashboard insights, predictive analytics, mission reasoning
+4. ✅ Live verification, burnout-recommendation fix, docs
 
-## Completed Work
+## Completed Work (cumulative)
 
-- **V1 Foundation:** syllabus browser (235 topics), progress tracking, dashboard, Ctrl+K search, settings/backup, landing page.
-- **V2 Compass:** adaptive study planner — setup wizard, Today/Week views, drag & drop, task actions, analytics, dashboard integration.
-- **V3 Intelligence Engine:** see architecture below. 64 tests green, lint clean, `build:check` = 303 static pages. Live-verified: priority-first scheduling (Gandhian era/Fundamental Rights/monsoon open their subjects), auto revision generation + ladder completion (R1→+10d verified in browser), V2→V3 migration, forecast "On track / 31 Mar 2027", burnout indicator.
+- **V1 Foundation:** syllabus browser (235 topics), stages, dashboard, search, settings/backup, landing.
+- **V2 Compass:** adaptive planner (wizard, Today/Week, DnD, task actions), dashboard integration.
+- **V3 Intelligence Engine:** curated exam intel, priority-aware scheduling, spaced revisions (3/10/30), difficulty balancing, forecast v1, burnout indicator, Today's Mission.
+- **Phase A Intelligence Core:** see CHANGELOG 0.4.0. 92 tests green, lint clean, build = 303 pages. Live-verified: advanced setup saves, Why-dialog explains real reasons, insights card (health badge + reasoned recommendations), forecast probabilities (78%/98% shown), v3→v4 migration incl. overdue revision rescheduled after the off day.
 
-## Current Architecture
+## Current Architecture (intelligence layer)
 
-- **Local-first single-user app.** No backend/auth until V5 "Bridge". Do not add server state before then.
-- **Topic model** (`src/lib/stages.ts`): 7-stage lifecycle + per-topic `priority/difficulty/estimatedMinutes` as **user overrides (null = auto)** resolved against the curated intelligence layer; plus `studiedMinutes, lastStudiedAt, revisionCount, confidence, nextRevisionAt`. `getTopicState` merges defaults with a WeakMap cache — **selector references must stay stable** (see stages.test.ts regression tests).
-- **Intelligence layer:** `src/data/topic-intel.ts` (curated priorities/difficulty/time/revision weights by topic/sub-unit/unit/paper) + `src/lib/planner/intel.ts` (cascading resolution: user → topic → ancestors → config; paper short names, subject names).
-- **Scheduler** (`src/lib/planner/scheduler.ts`): per day → (1) due spaced revisions first, capped at 60% capacity, (2) study fill via hierarchical rotation (exam stage → paper → unit → topic) with **priority-sorted unit queues** and **hard-topic spacing** (lookahead 4). Recovery day auto-inserted every 7th day when no weekly off day. Pinned tasks + today's completed minutes reserve capacity.
-- **Revision engine:** finishing a first reading (or any manual stage change) anchors `nextRevisionAt` (+3d); due topics become `kind:"revision"` tasks; completing one climbs revision-1/2/3 and re-anchors (+10d, +30d, then done). Exam-ready stays a manual confidence call.
-- **Forecast** (`forecast.ts`): remaining workload = readings + all pending revisions vs weekly capacity → days required, expected completion date, pace status (on-track/tight/behind + required daily minutes). **Burnout** (`analytics.ts`): load ratio + consecutive days + hard share → sustainable/elevated/high. All thresholds in `config.ts` — nothing hardcoded.
-- **Store v3** (`upsc-os-store`, migrate chain v1→v2→v3; v2 "medium" difficulty → null/auto). Backups: V1/V2/V3 files all import.
-- **Hydration rule:** store-reading components gate on `useMounted()`; whole-object selectors rely on the getTopicState cache.
+Independent, individually-tested services in `src/lib/planner/` — business logic never lives in components:
+- `config.ts` — EVERY tunable (weights, intervals, thresholds, damping) + `withPlannerDefaults` (old stored settings gain new fields on read; never migrate UI-side).
+- `intel.ts` + `src/data/topic-intel.ts` — curated exam importance, cascading resolution (user → topic → ancestors → config).
+- `priority.ts` — dynamic score with reasons: base + confidence gap + revision urgency + postponements + exam proximity.
+- `confidence.ts` — effective confidence (derived; stored user rating never mutated).
+- `workload.ts` — pools/queues (score-ordered; `started` items get continuity), estimates, revision minutes.
+- `capacity.ts` — day/weekly capacity incl. aggressiveness, weekend strategy, vacations, damping factor.
+- `scheduler.ts` — per day: due revisions (≤60% cap; weekends uncapped if revision-heavy) → continuity (finish started readings) → score-ordered rotation (stage→paper→unit→topic) with hard-spacing, maxHardPerDay (strict), easy-first mornings, pick-sweep (see gotcha below).
+- `forecast.ts` — workload vs capacity blended with observed pace; logistic finish probabilities; CI from pace variability.
+- `analytics.ts` — descriptive stats + `burnoutIndicator` (display, load-aware) + `fatigueIndicator` (behaviour-only — DRIVES damping & the burnout recommendation; see gotcha).
+- `recommendations.ts` — rule set, every item has `why`.
+- `health.ts` — 7-component weighted score.
+- `explain.ts` — reconstructs per-task reasons from the same scoring (no stored prose) + mission reasoning line.
+- Store v4 (`app-store.ts`): behaviour counters on skip/move-later/miss/complete; custom revision intervals honoured; daily snapshots (60d); regenerate = missed→history+counters, pinned survive, completed-today reserves capacity, fatigue damping.
 
-## Key Files (V3 additions)
+## CRITICAL design gotchas (cost real debugging — do not relearn)
 
-- `src/data/topic-intel.ts` — curated exam intelligence (edit here to tune priorities)
-- `src/lib/planner/intel.ts`, `forecast.ts` — resolution + capacity/forecast engines
-- `src/lib/planner/config.ts` — every tunable (revision intervals, caps, burnout weights, day-label thresholds)
-- `src/components/ui/progress-ring.tsx` — shared ring (dashboard + mission)
-- Tests: `intel.test.ts`, `forecast.test.ts`, `stages.test.ts` + expanded `scheduler.test.ts`, `app-store.test.ts`
+1. **Never feed planner output back into planner input.** A fresh plan always sits at ~100% of capacity; using planned-load burnout to damp capacity made the plan shrink itself (3→2 sessions/day). Damping and the burnout recommendation use `fatigueIndicator` (real streaks + completed hard work). The display indicator may include planned load.
+2. **Filtered rotation picks need a wide sweep** (`pickSweepLimit` 40 > unit count): with a small lookahead, hard-over-quota candidates exhausted the pick loop and days ended half-empty.
+3. **Continuity beats rotation for started topics** — without it a 150-min topic waits ~10 days for its unit's next turn.
+4. `getTopicState` returns cached stable references (WeakMap) — required by zustand selectors; new TopicState fields = add default, done (auto-backfill).
+5. Never `npm run build` while dev server runs → use `npm run build:check`.
 
 ## Remaining Tasks
 
-- **Deploy V1–V3:** founder creates GitHub + Vercel accounts → DEPLOYMENT.md steps.
-- Then V4 planning (per ROADMAP: "Archive" PYQ bank — topic model already has the hooks; roadmap phases may be re-sequenced vs the founder's phase names).
+- **Deploy (V1→Phase A):** founder creates GitHub + Vercel accounts → DEPLOYMENT.md. Remind every session.
+- Next feature phases (founder's naming): Knowledge Workspace (notes), PYQ Intelligence, Current Affairs, AI Mentor, Revision OS, Test Analytics. Topic model extends by adding defaulted fields — no refactor needed.
 
 ## Known Bugs
 
-- None open. See KNOWN_ISSUES.md (notably: never run `npm run build` while dev server runs — use `npm run build:check`).
+- None open. KNOWN_ISSUES.md documents accepted limitations + the build:check rule.
 
 ## Commands Required
 
-- `npm run dev` — dev server · `npm test` / `npm run lint` — quality gate
-- `npm run build:check` — production build in isolated `.next-check` (safe alongside dev server)
+- `npm run dev` · `npm test` (92) · `npm run lint` · `npm run build:check`
 
 ## Deployment Status
 
-- **Not deployed.** Fully Vercel-ready, no env vars.
+- **Not deployed.** Vercel-ready, no env vars.
 
 ## Environment Facts
 
-- Founder is a **non-programmer** — plain English, click-by-click steps, all technical decisions made for him.
-- Windows 11, Node v25, TS 6 strict, Next 15.5, eslint flat config. Preview config in `.claude/launch.json`.
+- Founder is a **non-programmer** — plain English, click-by-click, make all technical decisions.
+- Windows 11, Node v25, TS 6 strict, Next 15.5. Preview config in `.claude/launch.json`.
 
 ## Next Recommended Step
 
-Deploy (founder accounts), then plan V4. When tuning scheduling behavior, change `src/lib/planner/config.ts` and `src/data/topic-intel.ts` — never inline constants.
+Deploy, then pick the next module. Tune behavior only via `config.ts` / `topic-intel.ts`.

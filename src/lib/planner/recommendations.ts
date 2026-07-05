@@ -4,6 +4,7 @@ import { PLANNER_CONFIG } from "./config";
 import {
   burnoutIndicator,
   consistency,
+  fatigueIndicator,
   weeklyCompletion,
 } from "./analytics";
 import { effectiveConfidence } from "./confidence";
@@ -107,21 +108,22 @@ export function buildRecommendations(
     });
   }
 
-  // Burnout.
-  const burnout = burnoutIndicator(tasks, topics, settings, today);
-  if (burnout.level !== "sustainable") {
+  // Burnout — triggered by real fatigue (streak + hard work actually
+  // done), not by a full plan: a fresh plan is always near capacity, and
+  // warning on that would nag every single day.
+  const fatigue = fatigueIndicator(tasks, topics, today);
+  if (fatigue.level !== "sustainable") {
+    const burnout = burnoutIndicator(tasks, topics, settings, today);
     items.push({
       id: "burnout",
-      level: burnout.level === "high" ? "warning" : "info",
+      level: fatigue.level === "high" ? "warning" : "info",
       title:
-        burnout.level === "high"
+        fatigue.level === "high"
           ? "Burnout risk is high — ease off"
           : "Burnout risk is elevated",
-      why: `${burnout.consecutiveDays} consecutive study days, coming week at ${Math.round(
-        burnout.loadRatio * 100,
-      )}% of capacity, ${Math.round(
+      why: `${burnout.consecutiveDays} consecutive study days and ${Math.round(
         burnout.hardShare * 100,
-      )}% hard material. The planner is already damping future days; a lighter day or an off day protects consistency.`,
+      )}% hard material ahead. The planner is already damping future days; a lighter day or an off day protects consistency.`,
     });
   }
 

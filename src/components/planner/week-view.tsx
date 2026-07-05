@@ -94,7 +94,7 @@ export function WeekView({ settings }: { settings: PlannerSettings }) {
     const all = Object.values(tasks);
     return {
       missed: recentMissed(all, 7, today).length,
-      forecast: computeForecast(topics, settings, examDate, today),
+      forecast: computeForecast(topics, settings, examDate, today, all),
     };
   }, [tasks, topics, settings, examDate, today]);
 

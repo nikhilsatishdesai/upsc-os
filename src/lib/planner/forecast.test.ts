@@ -70,6 +70,69 @@ describe("study capacity engine / completion forecast", () => {
   });
 });
 
+describe("forecast v2: probabilities and observed pace", () => {
+  function completedTask(
+    date: string,
+    minutes: number,
+    id: string,
+  ): PlannedTask {
+    return {
+      id,
+      topicId: "prelims.csat.comprehension",
+      date,
+      slot: "morning",
+      minutes,
+      kind: "study",
+      status: "completed",
+      completedAt: `${date}T10:00:00.000Z`,
+      createdBy: "auto",
+    };
+  }
+
+  it("probability rises with slack and stays within 0–100", () => {
+    const soon = computeForecast({}, settings, addDays(TODAY, 60), TODAY);
+    const distant = computeForecast({}, settings, addDays(TODAY, 900), TODAY);
+    expect(distant.prelimsProbability!).toBeGreaterThan(
+      soon.prelimsProbability!,
+    );
+    for (const p of [soon.prelimsProbability!, distant.prelimsProbability!]) {
+      expect(p).toBeGreaterThanOrEqual(0);
+      expect(p).toBeLessThanOrEqual(100);
+    }
+    // Mains is later than Prelims, so its probability can't be lower.
+    expect(distant.mainsProbability!).toBeGreaterThanOrEqual(
+      distant.prelimsProbability! > 99 ? 0 : distant.prelimsProbability!,
+    );
+  });
+
+  it("ignores observed pace until there is enough history", () => {
+    const tasks = [completedTask(addDays(TODAY, -1), 60, "one")];
+    const forecast = computeForecast({}, settings, EXAM_FAR, TODAY, tasks);
+    expect(forecast.actualDailyMinutes).toBeNull();
+    expect(forecast.effectiveDailyMinutes).toBe(forecast.averageDailyMinutes);
+  });
+
+  it("a slow observed pace lengthens the forecast honestly", () => {
+    // 14 days of history, but only ~30 minutes/day actually completed.
+    const tasks: PlannedTask[] = [];
+    for (let i = 1; i <= 14; i++) {
+      tasks.push(completedTask(addDays(TODAY, -i), 30, `t${i}`));
+    }
+    const withHistory = computeForecast({}, settings, EXAM_FAR, TODAY, tasks);
+    const withoutHistory = computeForecast({}, settings, EXAM_FAR, TODAY);
+    expect(withHistory.actualDailyMinutes).toBe(30);
+    expect(withHistory.effectiveDailyMinutes).toBeLessThan(
+      withoutHistory.effectiveDailyMinutes,
+    );
+    expect(withHistory.daysRequired).toBeGreaterThan(
+      withoutHistory.daysRequired,
+    );
+    expect(withHistory.confidenceIntervalDays).toBeGreaterThan(0);
+  });
+});
+
+const EXAM_FAR = addDays(TODAY, 700);
+
 describe("burnout indicator", () => {
   it("is sustainable with an empty plan", () => {
     const result = burnoutIndicator([], {}, settings, TODAY);

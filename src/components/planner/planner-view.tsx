@@ -36,11 +36,18 @@ export function PlannerView() {
     [storedPlanner],
   );
 
+  const tasksMap = useAppStore((state) => state.tasks);
   const paceWarning = React.useMemo(() => {
     if (!mounted || !planner || !examDate) return null;
-    const forecast = computeForecast(topics, planner, examDate, todayStr());
+    const forecast = computeForecast(
+      topics,
+      planner,
+      examDate,
+      todayStr(),
+      Object.values(tasksMap),
+    );
     return forecast.paceStatus === "behind" ? forecast : null;
-  }, [mounted, planner, examDate, topics]);
+  }, [mounted, planner, examDate, topics, tasksMap]);
 
   // Daily adaptive replan: converts missed work back into future capacity.
   React.useEffect(() => {

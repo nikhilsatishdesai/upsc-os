@@ -48,7 +48,7 @@ export function AnalyticsView({ settings }: { settings: PlannerSettings }) {
       daily: dailyStudyMinutes(tasks, PLANNER_CONFIG.hoursChartDays, today),
       upcoming: upcomingPendingMinutes(tasks, 7, today),
       remaining: remainingSyllabus(topics),
-      forecast: computeForecast(topics, settings, examDate, today),
+      forecast: computeForecast(topics, settings, examDate, today, tasks),
       burnout: burnoutIndicator(tasks, topics, settings, today),
       subjects: subjectDistribution(tasks),
       difficulty: difficultyDistribution(tasks, topics, today, 7),

@@ -24,6 +24,7 @@ import {
 } from "@/lib/planner/workload";
 import { generateSchedule } from "@/lib/planner/scheduler";
 import { burnoutIndicator, fatigueIndicator } from "@/lib/planner/analytics";
+import { studyHealth } from "@/lib/planner/health";
 import { addDays, isValidDateStr, todayStr } from "@/lib/planner/dates";
 import {
   PLANNER_CONFIG,
@@ -254,7 +255,13 @@ function regenerate(state: {
     );
     snapshots[today] = {
       burnoutScore: burnout.score,
-      healthScore: state.snapshots[today]?.healthScore ?? null,
+      healthScore: studyHealth({
+        tasks: Object.values(tasks),
+        topics,
+        settings,
+        examDate: state.examDate,
+        today,
+      }).score,
       remainingMinutes: totalRemainingMinutes(topics),
       revisionBacklog: backlog,
     };

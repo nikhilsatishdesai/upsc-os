@@ -139,8 +139,32 @@ export const PLANNER_CONFIG = {
   probabilitySteepness: 6,
   /** Days of recent history used to measure actual pace. */
   paceWindowDays: 14,
+  /** Active days of history required before observed pace influences the
+   * forecast (before that, settings capacity is trusted). */
+  paceMinActiveDays: 3,
   /** Daily snapshots kept for trend analytics. */
   snapshotRetentionDays: 60,
+
+  /** Recommendation thresholds. */
+  recommendations: {
+    /** Overdue revisions that count as a growing backlog. */
+    backlogWarning: 5,
+    /** Weekly completion % that counts as a strong week. */
+    strongWeekAt: 80,
+    /** Minimum planned tasks for the strong-week call. */
+    strongWeekMinTasks: 5,
+    /** Consistency % below which a routine nudge appears. */
+    lowConsistencyAt: 40,
+    /** Average effective confidence below which a paper is "falling". */
+    paperConfidenceWarning: 2.8,
+    /** Studied topics needed before judging a paper's confidence. */
+    paperConfidenceMinTopics: 3,
+    /** Maximum recommendations shown at once. */
+    maxItems: 5,
+  },
+
+  /** Study-health score bands. */
+  healthBands: { excellentAt: 80, goodAt: 60, fairAt: 40 },
 } as const;
 
 /** Default values for the Phase-A planner settings (merged on read so

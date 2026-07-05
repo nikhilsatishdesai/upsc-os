@@ -4,6 +4,7 @@ import { Greeting } from "@/components/dashboard/greeting";
 import { CountdownCard } from "@/components/dashboard/countdown-card";
 import { OverallProgressCard } from "@/components/dashboard/overall-progress-card";
 import { TodayPlanCard } from "@/components/dashboard/today-plan-card";
+import { InsightsCard } from "@/components/dashboard/insights-card";
 import { PapersCard } from "@/components/dashboard/papers-card";
 import { RecentActivityCard } from "@/components/dashboard/recent-activity-card";
 import { RecentTopicsCard } from "@/components/dashboard/recent-topics-card";
@@ -22,11 +23,15 @@ export default function DashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <TodayPlanCard />
-        <PapersCard />
+        <InsightsCard />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <PapersCard />
         <RecentActivityCard />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
         <RecentTopicsCard />
       </div>
     </div>

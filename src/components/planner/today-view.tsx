@@ -7,6 +7,7 @@ import { Coffee, PartyPopper, Target } from "lucide-react";
 import { SLOT_LABEL, SLOT_ORDER } from "@/lib/planner/config";
 import { dayCapacity, slotStartTime } from "@/lib/planner/capacity";
 import { todayStr, formatDateLong } from "@/lib/planner/dates";
+import { missionReasoning } from "@/lib/planner/explain";
 import { resolveTopicIntel } from "@/lib/planner/intel";
 import type { PlannedTask, PlannerSettings, TaskSlot } from "@/lib/planner/types";
 import { getTopicState } from "@/lib/stages";
@@ -152,6 +153,14 @@ export function TodayView({ settings }: { settings: PlannerSettings }) {
                 sessions · {mission.priorityCount} high-priority ·{" "}
                 {mission.revisionCount} revision
                 {mission.revisionCount === 1 ? "" : "s"}
+              </p>
+              <p className="text-xs text-muted-foreground/80">
+                {missionReasoning(
+                  mission.todayTasks,
+                  topics,
+                  settings,
+                  day.capacityMinutes,
+                )}
               </p>
             </div>
           </div>

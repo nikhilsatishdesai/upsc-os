@@ -8,6 +8,7 @@ import {
   Check,
   CircleCheck,
   GripVertical,
+  Lightbulb,
   MoreVertical,
   RotateCcw,
   Scissors,
@@ -23,8 +24,9 @@ import {
   STAGE_META,
   DIFFICULTY_META,
 } from "@/lib/stages";
-import { PLANNER_CONFIG } from "@/lib/planner/config";
+import { PLANNER_CONFIG, withPlannerDefaults } from "@/lib/planner/config";
 import { todayStr } from "@/lib/planner/dates";
+import { explainTask } from "@/lib/planner/explain";
 import { paperShortName, resolveTopicIntel, subjectNameOf } from "@/lib/planner/intel";
 import type { PlannedTask } from "@/lib/planner/types";
 import { tomorrowStr, useAppStore } from "@/store/app-store";
@@ -46,6 +48,51 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+/** "Why this session?" — the planner explanation engine's output. */
+function WhyDialog({
+  open,
+  onOpenChange,
+  task,
+  title,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  task: PlannedTask;
+  title: string;
+}) {
+  const topics = useAppStore((state) => state.topics);
+  const storedPlanner = useAppStore((state) => state.planner);
+  const examDate = useAppStore((state) => state.examDate);
+
+  const reasons = React.useMemo(() => {
+    if (!open || !storedPlanner) return [];
+    return explainTask(
+      task,
+      topics,
+      withPlannerDefaults(storedPlanner),
+      examDate,
+    );
+  }, [open, task, topics, storedPlanner, examDate]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Why “{title}”?</DialogTitle>
+          <DialogDescription>
+            Every session has reasons — nothing in the plan is random.
+          </DialogDescription>
+        </DialogHeader>
+        <ul className="list-disc space-y-1.5 pl-5 text-sm">
+          {reasons.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const statusStyles: Record<PlannedTask["status"], string> = {
   pending: "",
@@ -76,6 +123,7 @@ export function TaskCard({
   );
 
   const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
+  const [whyOpen, setWhyOpen] = React.useState(false);
   const [moveDate, setMoveDate] = React.useState(tomorrowStr());
 
   const node = getNode(task.topicId);
@@ -216,6 +264,10 @@ export function TaskCard({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setWhyOpen(true)}>
+              <Lightbulb /> Why this session?
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             {pending ? (
               <>
                 <DropdownMenuItem onClick={() => completeTask(task.id)}>
@@ -254,6 +306,13 @@ export function TaskCard({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+
+      <WhyDialog
+        open={whyOpen}
+        onOpenChange={setWhyOpen}
+        task={task}
+        title={node.title}
+      />
 
       <Dialog open={moveDialogOpen} onOpenChange={setMoveDialogOpen}>
         <DialogContent className="sm:max-w-sm">

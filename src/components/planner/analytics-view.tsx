@@ -10,6 +10,7 @@ import {
   dailyStudyMinutes,
   difficultyDistribution,
   monthlyCompletion,
+  recentMissed,
   remainingSyllabus,
   revisionShare,
   subjectDistribution,
@@ -17,8 +18,14 @@ import {
   weeklyCompletion,
 } from "@/lib/planner/analytics";
 import { computeForecast, PACE_META } from "@/lib/planner/forecast";
+import { HEALTH_BAND_META, studyHealth } from "@/lib/planner/health";
 import { PLANNER_CONFIG } from "@/lib/planner/config";
-import { formatDateLong, formatDayShort, todayStr } from "@/lib/planner/dates";
+import {
+  formatDateLong,
+  formatDayShort,
+  startOfWeek,
+  todayStr,
+} from "@/lib/planner/dates";
 import type { PlannerSettings } from "@/lib/planner/types";
 import { DIFFICULTY_META, type Difficulty } from "@/lib/stages";
 import { getStages } from "@/lib/syllabus";
@@ -36,25 +43,48 @@ export function AnalyticsView({ settings }: { settings: PlannerSettings }) {
   const tasksMap = useAppStore((state) => state.tasks);
   const topics = useAppStore((state) => state.topics);
   const examDate = useAppStore((state) => state.examDate);
+  const snapshotsMap = useAppStore((state) => state.snapshots);
 
   const tasks = React.useMemo(() => Object.values(tasksMap), [tasksMap]);
   const stats = React.useMemo(() => {
     const today = todayStr();
+    const daily = dailyStudyMinutes(tasks, PLANNER_CONFIG.hoursChartDays, today);
+    const weekStart = startOfWeek(today);
+    let weekPlannedMinutes = 0;
+    let weekCompletedMinutes = 0;
+    for (const task of tasks) {
+      if (task.date < weekStart || task.date > today) continue;
+      if (task.status === "skipped") continue;
+      weekPlannedMinutes += task.minutes;
+      if (task.status === "completed") weekCompletedMinutes += task.minutes;
+    }
     return {
       week: weeklyCompletion(tasks, today),
       month: monthlyCompletion(tasks, today),
       streak: currentStreak(tasks, today),
       consistency: consistency(tasks, PLANNER_CONFIG.consistencyWindowDays, today),
-      daily: dailyStudyMinutes(tasks, PLANNER_CONFIG.hoursChartDays, today),
+      daily,
+      avgDailyOutput: Math.round(
+        daily.reduce((sum, day) => sum + day.minutes, 0) / daily.length,
+      ),
+      efficiency:
+        weekPlannedMinutes === 0
+          ? null
+          : Math.round((weekCompletedMinutes / weekPlannedMinutes) * 100),
+      missed14: recentMissed(tasks, 14, today).length,
       upcoming: upcomingPendingMinutes(tasks, 7, today),
       remaining: remainingSyllabus(topics),
       forecast: computeForecast(topics, settings, examDate, today, tasks),
       burnout: burnoutIndicator(tasks, topics, settings, today),
+      health: studyHealth({ tasks, topics, settings, examDate, today }),
+      trend: Object.entries(snapshotsMap)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(-30),
       subjects: subjectDistribution(tasks),
       difficulty: difficultyDistribution(tasks, topics, today, 7),
       revisions: revisionShare(tasks, today, 7),
     };
-  }, [tasks, topics, settings, examDate]);
+  }, [tasks, topics, settings, examDate, snapshotsMap]);
 
   const chartMax = Math.max(
     settings.dailyHours * 60,
@@ -116,7 +146,17 @@ export function AnalyticsView({ settings }: { settings: PlannerSettings }) {
               )} / month`}
             />
             <Row
-              label="Days required at current pace"
+              label="Observed pace (last 14 days)"
+              value={
+                stats.forecast.actualDailyMinutes === null
+                  ? "building history…"
+                  : `${hours(stats.forecast.actualDailyMinutes)} / day vs ${hours(
+                      stats.forecast.averageDailyMinutes,
+                    )} planned`
+              }
+            />
+            <Row
+              label="Days required at effective pace"
               value={
                 stats.forecast.daysAvailable !== null
                   ? `${stats.forecast.daysRequired} of ${stats.forecast.daysAvailable} available`
@@ -127,9 +167,15 @@ export function AnalyticsView({ settings }: { settings: PlannerSettings }) {
               label="Expected completion"
               value={
                 stats.forecast.expectedCompletionDate
-                  ? formatDateLong(stats.forecast.expectedCompletionDate)
+                  ? `${formatDateLong(stats.forecast.expectedCompletionDate)} ± ${stats.forecast.confidenceIntervalDays}d`
                   : "—"
               }
+            />
+            <Row
+              label="Finish before Prelims / Mains"
+              value={`${stats.forecast.prelimsProbability ?? "—"}% · ${
+                stats.forecast.mainsProbability ?? "—"
+              }%`}
             />
             {stats.forecast.paceStatus === "behind" &&
               stats.forecast.requiredDailyMinutes !== null && (
@@ -196,6 +242,98 @@ export function AnalyticsView({ settings }: { settings: PlannerSettings }) {
         </Card>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between gap-2 text-sm font-medium text-muted-foreground">
+              Study health
+              <Badge
+                variant="outline"
+                className={HEALTH_BAND_META[stats.health.band].className}
+              >
+                {stats.health.score} · {HEALTH_BAND_META[stats.health.band].label}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {stats.health.components.map((component) => (
+              <div key={component.key} className="flex items-center gap-2">
+                <span className="w-32 shrink-0 text-xs text-muted-foreground">
+                  {component.label}
+                </span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className={cn(
+                      "h-full rounded-full",
+                      component.score >= 60
+                        ? "bg-emerald-500"
+                        : component.score >= 40
+                          ? "bg-amber-500"
+                          : "bg-red-500",
+                    )}
+                    style={{ width: `${component.score}%` }}
+                  />
+                </div>
+                <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">
+                  {component.score}
+                </span>
+              </div>
+            ))}
+            <p className="pt-1 text-xs text-muted-foreground">
+              A planning instrument, not a game score — each bar tells the
+              engine what to protect next.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Intelligence trends
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats.trend.length < 2 ? (
+              <p className="text-sm text-muted-foreground">
+                Trends appear after a few days of use — one snapshot is
+                recorded per day.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                <TrendChart
+                  label="Health score"
+                  points={stats.trend.map(([date, snap]) => ({
+                    date,
+                    value: snap.healthScore ?? 0,
+                  }))}
+                  barClass="bg-emerald-500/70"
+                />
+                <TrendChart
+                  label="Burnout score"
+                  points={stats.trend.map(([date, snap]) => ({
+                    date,
+                    value: snap.burnoutScore,
+                  }))}
+                  barClass="bg-amber-500/70"
+                />
+                <Row
+                  label="Workload change over this window"
+                  value={`${
+                    Math.round(
+                      ((stats.trend[0][1].remainingMinutes -
+                        stats.trend[stats.trend.length - 1][1]
+                          .remainingMinutes) /
+                        60) *
+                        10,
+                    ) / 10
+                  }h cleared`}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -246,6 +384,22 @@ export function AnalyticsView({ settings }: { settings: PlannerSettings }) {
             <Row
               label="Revisions vs study (coming week)"
               value={`${hours(stats.revisions.revisionMinutes)} / ${hours(stats.revisions.studyMinutes)}`}
+            />
+            <Row
+              label="Average daily output (14 days)"
+              value={`${hours(stats.avgDailyOutput)} / day`}
+            />
+            <Row
+              label="Missed sessions (14 days)"
+              value={String(stats.missed14)}
+            />
+            <Row
+              label="Weekly planner efficiency"
+              value={
+                stats.efficiency === null
+                  ? "—"
+                  : `${stats.efficiency}% of planned minutes done`
+              }
             />
             <div className="space-y-1.5 pt-1">
               <p className="text-xs font-medium text-muted-foreground">
@@ -353,9 +507,41 @@ function StatCard({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
+    <div className="flex items-baseline justify-between gap-3 text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function TrendChart({
+  label,
+  points,
+  barClass,
+}: {
+  label: string;
+  points: { date: string; value: number }[];
+  barClass: string;
+}) {
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="flex h-12 items-end gap-px">
+        {points.map((point) => (
+          <div
+            key={point.date}
+            className="group relative flex-1"
+            title={`${formatDayShort(point.date)}: ${point.value}`}
+          >
+            <div
+              className={cn("w-full rounded-t", barClass)}
+              style={{
+                height: `${Math.max(2, point.value)}%`,
+              }}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

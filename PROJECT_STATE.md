@@ -1,6 +1,7 @@
 # PROJECT_STATE.md
 
 > **Purpose:** If a new Claude session opens, reading this file should allow work to continue immediately.
+> **Full developer/AI documentation lives in [`/docs`](./docs) — start with `docs/MASTER_CONTEXT.md` (project-wide context, hard rules), then `docs/PROJECT_STATUS.md` (metrics, debt, priorities).**
 > **Last updated:** 2026-07-05
 
 ## Current Milestone

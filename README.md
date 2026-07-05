@@ -47,11 +47,13 @@ npm run lint         # code style checks
 
 | File | Purpose |
 |---|---|
-| [ROADMAP.md](./ROADMAP.md) | Full V1→V10 product roadmap |
-| [PROJECT_STATE.md](./PROJECT_STATE.md) | **Start here** — current milestone, architecture, remaining work |
+| [docs/MASTER_CONTEXT.md](./docs/MASTER_CONTEXT.md) | **Developers/AI start here** — complete continuation context |
+| [docs/](./docs) | Full developer docs: architecture, data model, structure, AI-phase specs, storage evolution, contributing, status |
+| [ROADMAP.md](./ROADMAP.md) | Full product roadmap |
+| [PROJECT_STATE.md](./PROJECT_STATE.md) | Current milestone, gotchas, next step (session handoff) |
 | [CHANGELOG.md](./CHANGELOG.md) | What changed in each version |
 | [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) | Open bugs and limitations |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | How the app is deployed to Vercel |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | How the app is deployed to Vercel (founder click-by-click) |
 
 ## License
 

@@ -11,6 +11,7 @@ import { StatusSelect } from "@/components/syllabus/status-select";
 import { SubtreeProgress } from "@/components/syllabus/subtree-progress";
 import { TopicMeta } from "@/components/syllabus/topic-meta";
 import { TopicWorkspace } from "@/components/knowledge/topic-workspace";
+import { BookmarkMenu } from "@/components/knowledge/bookmark-menu";
 
 export const dynamicParams = false;
 
@@ -73,7 +74,18 @@ export default async function TopicPage({
             </p>
           )}
         </div>
-        {leaf && <StatusSelect topicId={node.id} size="lg" />}
+        {leaf && (
+          <div className="flex items-center gap-2">
+            <BookmarkMenu
+              targetType="topic"
+              targetId={node.id}
+              topicId={node.id}
+              label={node.title}
+              size="lg"
+            />
+            <StatusSelect topicId={node.id} size="lg" />
+          </div>
+        )}
       </div>
 
       {!leaf && (

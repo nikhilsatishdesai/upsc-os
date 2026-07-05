@@ -3,15 +3,20 @@
 import * as React from "react";
 import {
   BookOpen,
+  FileQuestion,
+  History,
   Layers,
   Library,
+  Newspaper,
   NotebookPen,
+  Sparkles,
   Tags,
   Zap,
 } from "lucide-react";
 
 import { useKnowledgeStore } from "@/store/knowledge-store";
 import { useMounted } from "@/hooks/use-mounted";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KnowledgeSection } from "@/components/knowledge/knowledge-section";
 import { RichNoteEditor } from "@/components/knowledge/rich-note-editor";
@@ -20,6 +25,9 @@ import { FlashcardsSection } from "@/components/knowledge/flashcards-section";
 import { KeywordsSection } from "@/components/knowledge/keywords-section";
 import { BooksSection } from "@/components/knowledge/books-section";
 import { ResourcesSection } from "@/components/knowledge/resources-section";
+import { PyqsSection } from "@/components/knowledge/pyqs-section";
+import { CurrentAffairsSection } from "@/components/knowledge/current-affairs-section";
+import { HistorySection } from "@/components/knowledge/history-section";
 
 function countBy<T extends { topicId: string }>(
   map: Record<string, T>,
@@ -41,6 +49,8 @@ export function TopicWorkspace({ topicId }: { topicId: string }) {
   const keywords = useKnowledgeStore((state) => state.keywords);
   const bookRefs = useKnowledgeStore((state) => state.bookRefs);
   const resources = useKnowledgeStore((state) => state.resources);
+  const pyqs = useKnowledgeStore((state) => state.pyqs);
+  const currentAffairs = useKnowledgeStore((state) => state.currentAffairs);
 
   const counts = React.useMemo(
     () => ({
@@ -49,8 +59,24 @@ export function TopicWorkspace({ topicId }: { topicId: string }) {
       keywords: countBy(keywords, topicId),
       books: countBy(bookRefs, topicId),
       resources: countBy(resources, topicId),
+      pyqs: Object.values(pyqs).filter(
+        (pyq) =>
+          pyq.topicId === topicId || pyq.linkedTopicIds.includes(topicId),
+      ).length,
+      affairs: Object.values(currentAffairs).filter((affair) =>
+        affair.topicIds.includes(topicId),
+      ).length,
     }),
-    [quickNotes, flashcards, keywords, bookRefs, resources, topicId],
+    [
+      quickNotes,
+      flashcards,
+      keywords,
+      bookRefs,
+      resources,
+      pyqs,
+      currentAffairs,
+      topicId,
+    ],
   );
 
   if (!mounted) {
@@ -99,6 +125,34 @@ export function TopicWorkspace({ topicId }: { topicId: string }) {
       >
         <ResourcesSection topicId={topicId} />
       </KnowledgeSection>
+
+      <KnowledgeSection
+        title="Previous Year Questions"
+        icon={FileQuestion}
+        count={counts.pyqs}
+      >
+        <PyqsSection topicId={topicId} />
+      </KnowledgeSection>
+
+      <KnowledgeSection
+        title="Current Affairs"
+        icon={Newspaper}
+        count={counts.affairs}
+      >
+        <CurrentAffairsSection topicId={topicId} />
+      </KnowledgeSection>
+
+      <KnowledgeSection title="Study History & Timeline" icon={History}>
+        <HistorySection topicId={topicId} />
+      </KnowledgeSection>
+
+      <Card className="border-dashed">
+        <CardContent className="flex items-center gap-2.5 py-3.5 text-sm text-muted-foreground">
+          <Sparkles className="h-4 w-4 shrink-0" />
+          AI tools (summaries, quizzes, explanations) arrive in a later phase
+          — this workspace is already wired for them.
+        </CardContent>
+      </Card>
     </div>
   );
 }

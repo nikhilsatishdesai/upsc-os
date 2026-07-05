@@ -1,5 +1,6 @@
 import { KNOWLEDGE_CONFIG } from "./config";
-import type { Flashcard } from "./types";
+import type { Flashcard, TimelineEvent } from "./types";
+import type { PlannedTask } from "@/lib/planner/types";
 
 /** A card is due when never reviewed or unreviewed for the config window. */
 export function isFlashcardDue(
@@ -46,4 +47,116 @@ export function reviewQueue(
       (a.lastReviewedAt ?? "").localeCompare(b.lastReviewedAt ?? "")
     );
   });
+}
+
+/** One entry of a topic's learning history. */
+export type TimelineEntry = {
+  at: string;
+  type: TimelineEvent["type"] | "studied" | "revised";
+  label: string;
+};
+
+/**
+ * The knowledge timeline: knowledge events merged with the planner's
+ * completed sessions — derived at read time, never double-stored.
+ */
+export function topicTimeline(
+  topicId: string,
+  events: TimelineEvent[],
+  tasks: PlannedTask[],
+  limit = 30,
+): TimelineEntry[] {
+  const entries: TimelineEntry[] = [];
+  for (const event of events) {
+    if (event.topicId === topicId) {
+      entries.push({ at: event.at, type: event.type, label: event.label });
+    }
+  }
+  for (const task of tasks) {
+    if (
+      task.topicId === topicId &&
+      task.status === "completed" &&
+      task.completedAt
+    ) {
+      entries.push({
+        at: task.completedAt,
+        type: task.kind === "revision" ? "revised" : "studied",
+        label: `${task.minutes} min ${task.kind === "revision" ? "revision" : "study"} session`,
+      });
+    }
+  }
+  return entries.sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit);
+}
+
+export type StudyHistoryRow = { label: string; value: string };
+
+/** Per-topic study history, fully derived from existing data. */
+export function topicStudyHistory(input: {
+  tasks: PlannedTask[];
+  events: TimelineEvent[];
+  topicId: string;
+  lastStudiedAt: string | null;
+  revisionCount: number;
+  completedSessions: number;
+  flashcards: Record<string, Flashcard>;
+  pyqsSolved: number;
+  bookmarkCount: number;
+  noteUpdatedAt: string | null;
+}): StudyHistoryRow[] {
+  const {
+    tasks,
+    events,
+    topicId,
+    lastStudiedAt,
+    revisionCount,
+    completedSessions,
+    flashcards,
+    pyqsSolved,
+    bookmarkCount,
+    noteUpdatedAt,
+  } = input;
+
+  let totalMinutes = 0;
+  let lastRevisedAt: string | null = null;
+  for (const task of tasks) {
+    if (task.topicId !== topicId || task.status !== "completed") continue;
+    totalMinutes += task.minutes;
+    if (
+      task.kind === "revision" &&
+      task.completedAt &&
+      (!lastRevisedAt || task.completedAt > lastRevisedAt)
+    ) {
+      lastRevisedAt = task.completedAt;
+    }
+  }
+
+  const firstEvent = events.find((event) => event.topicId === topicId);
+  const cardReviews = Object.values(flashcards)
+    .filter((card) => card.topicId === topicId)
+    .reduce((sum, card) => sum + card.reviewCount, 0);
+
+  const date = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      : "—";
+
+  return [
+    { label: "First activity", value: date(firstEvent?.at ?? null) },
+    { label: "Last studied", value: date(lastStudiedAt) },
+    { label: "Last revised", value: date(lastRevisedAt) },
+    {
+      label: "Time invested",
+      value: `${Math.round((totalMinutes / 60) * 10) / 10} h`,
+    },
+    { label: "Planner sessions", value: String(completedSessions) },
+    { label: "Revisions done", value: String(revisionCount) },
+    { label: "Flashcard reviews", value: String(cardReviews) },
+    { label: "PYQs solved", value: String(pyqsSolved) },
+    { label: "Bookmarks", value: String(bookmarkCount) },
+    { label: "Notes updated", value: date(noteUpdatedAt) },
+  ];
 }

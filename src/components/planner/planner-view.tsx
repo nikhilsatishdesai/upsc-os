@@ -4,6 +4,7 @@ import * as React from "react";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { withPlannerDefaults } from "@/lib/planner/config";
 import { diffDays, todayStr } from "@/lib/planner/dates";
 import { computeForecast } from "@/lib/planner/forecast";
 import { useAppStore } from "@/store/app-store";
@@ -22,12 +23,18 @@ type Tab = (typeof TABS)[number];
 
 export function PlannerView() {
   const mounted = useMounted();
-  const planner = useAppStore((state) => state.planner);
+  const storedPlanner = useAppStore((state) => state.planner);
   const examDate = useAppStore((state) => state.examDate);
   const topics = useAppStore((state) => state.topics);
   const lastPlannedAt = useAppStore((state) => state.lastPlannedAt);
   const regeneratePlan = useAppStore((state) => state.regeneratePlan);
   const [tab, setTab] = React.useState<Tab>("Today");
+
+  // Settings from older app versions gain the new fields' defaults here.
+  const planner = React.useMemo(
+    () => (storedPlanner ? withPlannerDefaults(storedPlanner) : null),
+    [storedPlanner],
+  );
 
   const paceWarning = React.useMemo(() => {
     if (!mounted || !planner || !examDate) return null;

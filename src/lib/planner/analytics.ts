@@ -288,6 +288,50 @@ export const BURNOUT_META: Record<
 };
 
 /**
+ * Fatigue level from *actual behaviour only* — consecutive study days and
+ * the share of hard material in recently completed work. This (not the
+ * full burnout indicator) drives automatic capacity damping: the full
+ * indicator includes planned load, which a freshly generated plan always
+ * maxes out, and feeding that back into planning would make the planner
+ * shrink its own plan in a loop.
+ */
+export function fatigueIndicator(
+  tasks: PlannedTask[],
+  topics: TopicStateMap,
+  today: string = todayStr(),
+): { score: number; level: BurnoutLevel } {
+  const cfg = PLANNER_CONFIG.burnout;
+  const consecutiveDays = currentStreak(tasks, today);
+
+  let hardDone = 0;
+  let totalDone = 0;
+  const from = addDays(today, -7);
+  for (const task of tasks) {
+    const date = completionDate(task);
+    if (!date || date < from) continue;
+    totalDone += task.minutes;
+    const intel = resolveTopicIntel(
+      task.topicId,
+      getTopicState(topics, task.topicId),
+    );
+    if (intel.difficulty === "hard") hardDone += task.minutes;
+  }
+  const hardShare = totalDone === 0 ? 0 : hardDone / totalDone;
+
+  const score = Math.round(
+    60 * Math.min(1, consecutiveDays / cfg.streakDanger) +
+      40 * Math.min(1, hardShare / cfg.hardShareDanger),
+  );
+  const level: BurnoutLevel =
+    score >= cfg.highAt
+      ? "high"
+      : score >= cfg.elevatedAt
+        ? "elevated"
+        : "sustainable";
+  return { score, level };
+}
+
+/**
  * Burnout indicator combining load (planned vs capacity), fatigue
  * (consecutive study days) and strain (share of hard material ahead).
  */

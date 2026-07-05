@@ -189,6 +189,16 @@ export type TopicState = {
   estimatedMinutes: number | null;
   /** Next spaced revision due date (YYYY-MM-DD); null = none scheduled. */
   nextRevisionAt: string | null;
+  /* Planner history — feeds the dynamic priority and confidence engines.
+   * Future modules (notes, PYQs, current affairs, AI metadata, performance)
+   * extend this type the same way these fields were added: declare the
+   * field with a default below and getTopicState backfills old data. */
+  /** Sessions completed for this topic (study + revision). */
+  completedSessions: number;
+  /** Sessions missed (left undone past their day). */
+  missedSessions: number;
+  /** Times the user pushed this topic away (skip / miss / move later). */
+  postponeCount: number;
 };
 
 export const DEFAULT_TOPIC_STATE: TopicState = {
@@ -201,6 +211,9 @@ export const DEFAULT_TOPIC_STATE: TopicState = {
   confidence: 3,
   estimatedMinutes: null,
   nextRevisionAt: null,
+  completedSessions: 0,
+  missedSessions: 0,
+  postponeCount: 0,
 };
 
 export type TopicStateMap = Record<string, TopicState>;

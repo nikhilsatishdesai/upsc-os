@@ -16,20 +16,29 @@ import {
   type TopicStateMap,
 } from "@/lib/stages";
 import {
+  buildRevisionQueue,
   effectiveEstimate,
   needsRevisions,
   remainingStudyMinutes,
+  totalRemainingMinutes,
 } from "@/lib/planner/workload";
 import { generateSchedule } from "@/lib/planner/scheduler";
+import { burnoutIndicator, fatigueIndicator } from "@/lib/planner/analytics";
 import { addDays, isValidDateStr, todayStr } from "@/lib/planner/dates";
-import { PLANNER_CONFIG, SLOT_ORDER } from "@/lib/planner/config";
+import {
+  PLANNER_CONFIG,
+  PLANNER_SETTING_DEFAULTS,
+  SLOT_ORDER,
+  withPlannerDefaults,
+} from "@/lib/planner/config";
 import type {
+  DailySnapshot,
   PlannedTask,
   PlannerSettings,
   TaskSlot,
 } from "@/lib/planner/types";
 
-export const STORE_VERSION = 3;
+export const STORE_VERSION = 4;
 const MAX_RECENT = 8;
 
 type AppState = {
@@ -45,6 +54,8 @@ type AppState = {
   tasks: Record<string, PlannedTask>;
   /** Last date (YYYY-MM-DD) the plan was (re)generated. */
   lastPlannedAt: string | null;
+  /** One intelligence snapshot per day, for trend analytics. */
+  snapshots: Record<string, DailySnapshot>;
 
   setStage: (topicId: string, stage: StudyStage) => void;
   setTopicMeta: (
@@ -84,6 +95,7 @@ export type ExportedState = {
   planner: PlannerSettings | null;
   tasks: Record<string, PlannedTask>;
   lastPlannedAt: string | null;
+  snapshots: Record<string, DailySnapshot>;
 };
 
 const initialData = {
@@ -94,6 +106,7 @@ const initialData = {
   planner: null as PlannerSettings | null,
   tasks: {} as Record<string, PlannedTask>,
   lastPlannedAt: null as string | null,
+  snapshots: {} as Record<string, DailySnapshot>,
 };
 
 /** Update one topic immutably, applying defaults first. */
@@ -107,41 +120,71 @@ function withTopic(
 
 /**
  * When the next spaced revision falls due for a topic that was last
- * studied today: 3 / 10 / 30 days out depending on revisions already done.
+ * studied on `from`, given the (customisable) interval schedule.
  * Null when no further spaced revision applies.
  */
 function nextRevisionDate(
   stage: StudyStage,
   revisionCount: number,
   from: string,
+  intervals: readonly number[],
 ): string | null {
-  const intervals = PLANNER_CONFIG.revisionIntervals;
   const eligible =
     stageIndex(stage) >= stageIndex("first-reading") &&
-    stageIndex(stage) < stageIndex("revision-3") &&
+    stage !== "exam-ready" &&
     revisionCount < intervals.length;
   return eligible ? addDays(from, intervals[revisionCount]) : null;
 }
 
+/** The active revision-interval schedule (settings override config). */
+function activeIntervals(planner: PlannerSettings | null): readonly number[] {
+  if (!planner) return PLANNER_CONFIG.revisionIntervals;
+  return withPlannerDefaults(planner).revisionIntervals;
+}
+
+/**
+ * Adaptive replan. Completed work never moves; overdue pending work becomes
+ * `missed` history (feeding the topic's behaviour counters); auto tasks
+ * regenerate from the live workload; pinned tasks survive; rising burnout
+ * transiently damps capacity so the plan stays sustainable.
+ */
 function regenerate(state: {
   planner: PlannerSettings | null;
   topics: TopicStateMap;
   tasks: Record<string, PlannedTask>;
-}): { tasks: Record<string, PlannedTask>; lastPlannedAt: string } {
+  examDate: string;
+  snapshots: Record<string, DailySnapshot>;
+}): {
+  tasks: Record<string, PlannedTask>;
+  topics: TopicStateMap;
+  lastPlannedAt: string;
+  snapshots: Record<string, DailySnapshot>;
+} {
   const today = todayStr();
   const tasks: Record<string, PlannedTask> = {};
+  let topics = state.topics;
+  const settings = state.planner ? withPlannerDefaults(state.planner) : null;
+  const intervals = settings
+    ? settings.revisionIntervals
+    : PLANNER_CONFIG.revisionIntervals;
 
   for (const task of Object.values(state.tasks)) {
     if (task.status === "pending" && task.date < today) {
-      // Missed work: keep for history, its topic re-enters the pool below.
+      // Missed work: keep for history; the topic's counters make its
+      // dynamic priority rise so it stops being avoidable.
       tasks[task.id] = { ...task, status: "missed" };
+      topics = withTopic(topics, task.topicId, (current) => ({
+        ...current,
+        missedSessions: current.missedSessions + 1,
+        postponeCount: current.postponeCount + 1,
+      }));
       continue;
     }
     if (task.status === "pending") {
-      const topic = getTopicState(state.topics, task.topicId);
+      const topic = getTopicState(topics, task.topicId);
       const stale =
         task.kind === "revision"
-          ? !needsRevisions(topic)
+          ? !needsRevisions(topic, intervals.length)
           : remainingStudyMinutes(task.topicId, topic) <= 0;
       // Auto tasks are regenerated; pinned tasks for finished work drop.
       if (task.createdBy === "auto" || stale) continue;
@@ -149,7 +192,8 @@ function regenerate(state: {
     tasks[task.id] = task;
   }
 
-  if (state.planner) {
+  let snapshots = state.snapshots;
+  if (settings) {
     const pinned: PlannedTask[] = [];
     const usedMinutesByDate = new Map<string, number>();
     for (const task of Object.values(tasks)) {
@@ -163,18 +207,60 @@ function regenerate(state: {
         );
       }
     }
+
+    // Burnout prevention: transient capacity damping by sensitivity,
+    // driven by actual fatigue (real streaks and hard work completed),
+    // never by the size of the plan itself.
+    const fatigue = fatigueIndicator(Object.values(state.tasks), topics, today);
+    const damping =
+      PLANNER_CONFIG.burnoutDamping[settings.burnoutSensitivity] ??
+      PLANNER_CONFIG.burnoutDamping.medium;
+    const loadFactor =
+      fatigue.level === "high"
+        ? damping.high
+        : fatigue.level === "elevated"
+          ? damping.elevated
+          : 1;
+
     for (const task of generateSchedule({
-      settings: state.planner,
-      topics: state.topics,
+      settings,
+      topics,
+      examDate: state.examDate,
       pinnedTasks: pinned,
       usedMinutesByDate,
+      loadFactor,
       fromDate: today,
     })) {
       tasks[task.id] = task;
     }
+
+    // Daily intelligence snapshot (idempotent per day) + retention prune.
+    // The snapshot records the full display indicator (incl. planned load).
+    const burnout = burnoutIndicator(
+      Object.values(tasks),
+      topics,
+      settings,
+      today,
+    );
+    const backlog = buildRevisionQueue(
+      topics,
+      today,
+      new Set(),
+      intervals.length,
+    ).length;
+    const cutoff = addDays(today, -PLANNER_CONFIG.snapshotRetentionDays);
+    snapshots = Object.fromEntries(
+      Object.entries(state.snapshots).filter(([date]) => date >= cutoff),
+    );
+    snapshots[today] = {
+      burnoutScore: burnout.score,
+      healthScore: state.snapshots[today]?.healthScore ?? null,
+      remainingMinutes: totalRemainingMinutes(topics),
+      revisionBacklog: backlog,
+    };
   }
 
-  return { tasks, lastPlannedAt: today };
+  return { tasks, topics, lastPlannedAt: today, snapshots };
 }
 
 export const useAppStore = create<AppState>()(
@@ -185,6 +271,7 @@ export const useAppStore = create<AppState>()(
       setStage: (topicId, stage) =>
         set((state) => {
           const today = todayStr();
+          const intervals = activeIntervals(state.planner);
           return {
             topics: withTopic(state.topics, topicId, (current) => {
               const revisionCount =
@@ -205,7 +292,12 @@ export const useAppStore = create<AppState>()(
                     : current.lastStudiedAt,
                 revisionCount,
                 // Manual stage changes (re)anchor the spaced-revision clock.
-                nextRevisionAt: nextRevisionDate(stage, revisionCount, today),
+                nextRevisionAt: nextRevisionDate(
+                  stage,
+                  revisionCount,
+                  today,
+                  intervals,
+                ),
               };
             }),
           };
@@ -242,29 +334,39 @@ export const useAppStore = create<AppState>()(
           const task = state.tasks[taskId];
           if (!task || task.status !== "pending") return state;
           const today = todayStr();
+          const intervals = activeIntervals(state.planner);
           const topics = withTopic(state.topics, task.topicId, (current) => {
+            const base = {
+              ...current,
+              completedSessions: current.completedSessions + 1,
+            };
             if (task.kind === "revision") {
               // Climb the revision ladder and schedule the next one.
               const revisionCount = Math.min(
                 current.revisionCount + 1,
-                PLANNER_CONFIG.revisionIntervals.length,
+                intervals.length,
               );
               const ladder: StudyStage[] = [
                 "revision-1",
                 "revision-2",
                 "revision-3",
               ];
-              const promoted = ladder[revisionCount - 1];
+              const promoted = ladder[Math.min(revisionCount, 3) - 1];
               const stage =
                 stageIndex(promoted) > stageIndex(current.stage)
                   ? promoted
                   : current.stage;
               return {
-                ...current,
+                ...base,
                 revisionCount,
                 stage,
                 lastStudiedAt: today,
-                nextRevisionAt: nextRevisionDate(stage, revisionCount, today),
+                nextRevisionAt: nextRevisionDate(
+                  stage,
+                  revisionCount,
+                  today,
+                  intervals,
+                ),
               };
             }
             const studiedMinutes = current.studiedMinutes + task.minutes;
@@ -273,13 +375,18 @@ export const useAppStore = create<AppState>()(
               studiedMinutes >= effectiveEstimate(task.topicId, current);
             const stage = finished ? "first-reading" : current.stage;
             return {
-              ...current,
+              ...base,
               studiedMinutes,
               lastStudiedAt: today,
               stage,
               // Finishing the first reading starts the revision clock.
               nextRevisionAt: finished
-                ? nextRevisionDate(stage, current.revisionCount, today)
+                ? nextRevisionDate(
+                    stage,
+                    current.revisionCount,
+                    today,
+                    intervals,
+                  )
                 : current.nextRevisionAt,
             };
           });
@@ -302,6 +409,11 @@ export const useAppStore = create<AppState>()(
           if (!task || task.status !== "pending") return state;
           return {
             tasks: { ...state.tasks, [taskId]: { ...task, status: "skipped" } },
+            // Skipping is avoidance — the topic's priority rises.
+            topics: withTopic(state.topics, task.topicId, (current) => ({
+              ...current,
+              postponeCount: current.postponeCount + 1,
+            })),
           };
         }),
 
@@ -310,6 +422,7 @@ export const useAppStore = create<AppState>()(
           const task = state.tasks[taskId];
           if (!task || task.status === "pending" || task.status === "missed")
             return state;
+          const intervals = activeIntervals(state.planner);
           let topics = state.topics;
           if (task.status === "completed" && task.kind === "revision") {
             topics = withTopic(state.topics, task.topicId, (current) => {
@@ -323,16 +436,18 @@ export const useAppStore = create<AppState>()(
               ];
               const stage =
                 revisionCountForStage(current.stage) > revisionCount
-                  ? ladder[revisionCount]
+                  ? ladder[Math.min(revisionCount, 2)]
                   : current.stage;
               return {
                 ...current,
                 revisionCount,
                 stage,
+                completedSessions: Math.max(0, current.completedSessions - 1),
                 nextRevisionAt: nextRevisionDate(
                   stage,
                   revisionCount,
                   todayStr(),
+                  intervals,
                 ),
               };
             });
@@ -343,6 +458,7 @@ export const useAppStore = create<AppState>()(
                 0,
                 current.studiedMinutes - task.minutes,
               ),
+              completedSessions: Math.max(0, current.completedSessions - 1),
               // Only undo an automatic first-reading promotion, never a
               // stage the user set by hand beyond it.
               stage:
@@ -353,6 +469,12 @@ export const useAppStore = create<AppState>()(
                 current.stage === "first-reading"
                   ? null
                   : current.nextRevisionAt,
+            }));
+          } else if (task.status === "skipped") {
+            // Reopening a skip withdraws the postponement signal.
+            topics = withTopic(state.topics, task.topicId, (current) => ({
+              ...current,
+              postponeCount: Math.max(0, current.postponeCount - 1),
             }));
           }
           return {
@@ -369,6 +491,7 @@ export const useAppStore = create<AppState>()(
           const task = state.tasks[taskId];
           if (!task || task.status !== "pending" || !isValidDateStr(date))
             return state;
+          const postponed = date > task.date;
           return {
             tasks: {
               ...state.tasks,
@@ -379,6 +502,13 @@ export const useAppStore = create<AppState>()(
                 createdBy: "user",
               },
             },
+            // Pushing work later counts as a postponement signal.
+            topics: postponed
+              ? withTopic(state.topics, task.topicId, (current) => ({
+                  ...current,
+                  postponeCount: current.postponeCount + 1,
+                }))
+              : state.topics,
           };
         }),
 
@@ -438,6 +568,7 @@ export const useAppStore = create<AppState>()(
           planner: data.planner,
           tasks: data.tasks,
           lastPlannedAt: data.lastPlannedAt,
+          snapshots: data.snapshots,
         }),
 
       resetAll: () => set({ ...initialData }),
@@ -454,6 +585,13 @@ export const useAppStore = create<AppState>()(
         if (version < 3) {
           state = migrateV2ToV3(state);
         }
+        if (version < 4) {
+          state = {
+            ...state,
+            planner: state.planner ? withPlannerDefaults(state.planner) : null,
+            snapshots: {},
+          };
+        }
         return state;
       },
       partialize: (state) => ({
@@ -464,6 +602,7 @@ export const useAppStore = create<AppState>()(
         planner: state.planner,
         tasks: state.tasks,
         lastPlannedAt: state.lastPlannedAt,
+        snapshots: state.snapshots,
       }),
     },
   ),
@@ -552,6 +691,7 @@ export function exportStateToJSON(): string {
     planner: state.planner,
     tasks: state.tasks,
     lastPlannedAt: state.lastPlannedAt,
+    snapshots: state.snapshots,
   };
   return JSON.stringify(data, null, 2);
 }
@@ -595,9 +735,16 @@ function sanitizeTopics(raw: unknown, fileVersion: number): TopicStateMap {
       nextRevisionAt: isValidDateStr(t.nextRevisionAt)
         ? t.nextRevisionAt
         : null,
+      completedSessions: count(t.completedSessions),
+      missedSessions: count(t.missedSessions),
+      postponeCount: count(t.postponeCount),
     };
   }
   return topics;
+}
+
+function count(value: unknown): number {
+  return typeof value === "number" && value >= 0 ? Math.round(value) : 0;
 }
 
 function sanitizeTasks(raw: unknown): Record<string, PlannedTask> {
@@ -641,6 +788,9 @@ function sanitizePlanner(raw: unknown): PlannerSettings | null {
     typeof value === "string" && /^\d{2}:\d{2}$/.test(value)
       ? value
       : fallback;
+  const oneOf = <T extends string>(value: unknown, allowed: T[], fallback: T): T =>
+    allowed.includes(value as T) ? (value as T) : fallback;
+  const d = PLANNER_SETTING_DEFAULTS;
   return {
     mainsDate: p.mainsDate,
     dailyHours: Math.min(16, Math.max(0.5, num(p.dailyHours, 6))),
@@ -653,7 +803,59 @@ function sanitizePlanner(raw: unknown): PlannerSettings | null {
     )
       ? (num(p.sessionMinutes, 60) as number)
       : 60,
+    revisionIntervals:
+      Array.isArray(p.revisionIntervals) &&
+      p.revisionIntervals.length >= 1 &&
+      p.revisionIntervals.length <= 6 &&
+      p.revisionIntervals.every(
+        (n) => typeof n === "number" && n >= 1 && n <= 180,
+      )
+        ? (p.revisionIntervals as number[]).map(Math.round)
+        : [...d.revisionIntervals],
+    maxHardPerDay: Math.min(6, Math.max(1, Math.round(num(p.maxHardPerDay, d.maxHardPerDay)))),
+    morningDifficulty: oneOf(
+      p.morningDifficulty,
+      ["hard-first", "easy-first"],
+      d.morningDifficulty,
+    ),
+    weekendStrategy: oneOf(
+      p.weekendStrategy,
+      ["normal", "light", "revision-heavy"],
+      d.weekendStrategy,
+    ),
+    vacationFrom: isValidDateStr(p.vacationFrom) ? p.vacationFrom : null,
+    vacationTo: isValidDateStr(p.vacationTo) ? p.vacationTo : null,
+    aggressiveness: oneOf(
+      p.aggressiveness,
+      ["relaxed", "standard", "intense"],
+      d.aggressiveness,
+    ),
+    burnoutSensitivity: oneOf(
+      p.burnoutSensitivity,
+      ["low", "medium", "high"],
+      d.burnoutSensitivity,
+    ),
   };
+}
+
+function sanitizeSnapshots(raw: unknown): Record<string, DailySnapshot> {
+  const snapshots: Record<string, DailySnapshot> = {};
+  if (typeof raw !== "object" || raw === null) return snapshots;
+  for (const [date, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!isValidDateStr(date) || typeof value !== "object" || value === null)
+      continue;
+    const s = value as Record<string, unknown>;
+    if (typeof s.burnoutScore !== "number") continue;
+    snapshots[date] = {
+      burnoutScore: s.burnoutScore,
+      healthScore: typeof s.healthScore === "number" ? s.healthScore : null,
+      remainingMinutes:
+        typeof s.remainingMinutes === "number" ? s.remainingMinutes : 0,
+      revisionBacklog:
+        typeof s.revisionBacklog === "number" ? s.revisionBacklog : 0,
+    };
+  }
+  return snapshots;
 }
 
 /**
@@ -714,6 +916,7 @@ export function parseExportedState(
       lastPlannedAt: isValidDateStr(obj.lastPlannedAt)
         ? obj.lastPlannedAt
         : null,
+      snapshots: obj.version < 4 ? {} : sanitizeSnapshots(obj.snapshots),
     },
   };
 }

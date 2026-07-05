@@ -5,24 +5,60 @@ import type { PlannerSettings, TaskSlot } from "./types";
 export type DayCapacity = {
   date: string;
   isOffDay: boolean;
-  /** Minutes of study the day can hold. */
+  /** True when the date falls inside the configured vacation. */
+  isVacation: boolean;
+  /** Minutes of study the day can hold (after all adjustments). */
   capacityMinutes: number;
   /** Number of sessions the day can hold. */
   sessions: number;
 };
 
+export function isVacationDay(
+  date: string,
+  settings: PlannerSettings,
+): boolean {
+  return Boolean(
+    settings.vacationFrom &&
+      settings.vacationTo &&
+      date >= settings.vacationFrom &&
+      date <= settings.vacationTo,
+  );
+}
+
+function isWeekend(date: string): boolean {
+  const weekday = weekdayOf(date);
+  return weekday === 0 || weekday === 6;
+}
+
+/**
+ * A day's usable study capacity: the base (hours vs sessions×duration,
+ * whichever is smaller) scaled by planner aggressiveness, the weekend
+ * strategy, and any transient burnout damping (`loadFactor`).
+ */
 export function dayCapacity(
   date: string,
   settings: PlannerSettings,
+  loadFactor: number = 1,
 ): DayCapacity {
   const isOffDay =
     settings.weeklyOffDay >= 0 && weekdayOf(date) === settings.weeklyOffDay;
-  if (isOffDay) {
-    return { date, isOffDay, capacityMinutes: 0, sessions: 0 };
+  const isVacation = isVacationDay(date, settings);
+  if (isOffDay || isVacation) {
+    return { date, isOffDay, isVacation, capacityMinutes: 0, sessions: 0 };
   }
-  const capacityMinutes = Math.min(
-    Math.round(settings.dailyHours * 60),
-    settings.maxSessionsPerDay * settings.sessionMinutes,
+
+  let factor =
+    (PLANNER_CONFIG.aggressivenessFactor[settings.aggressiveness] ?? 1) *
+    loadFactor;
+  if (settings.weekendStrategy === "light" && isWeekend(date)) {
+    factor *= PLANNER_CONFIG.weekendLightFactor;
+  }
+
+  const capacityMinutes = Math.round(
+    Math.min(
+      Math.round(settings.dailyHours * 60),
+      settings.maxSessionsPerDay * settings.sessionMinutes,
+    ) * Math.min(factor, 1.25),
   );
   const sessions =
     capacityMinutes <= 0
@@ -34,7 +70,7 @@ export function dayCapacity(
             Math.floor(capacityMinutes / settings.sessionMinutes),
           ),
         );
-  return { date, isOffDay, capacityMinutes, sessions };
+  return { date, isOffDay, isVacation, capacityMinutes, sessions };
 }
 
 /** Which slot the i-th session of the day belongs to. */
@@ -62,11 +98,23 @@ export function studyDaysPerWeek(settings: PlannerSettings): number {
   return Math.round((7 * PLANNER_CONFIG.maxConsecutiveStudyDays) / cycle);
 }
 
-/** Minutes of study capacity in a typical week. */
+/** Minutes of study capacity in a typical week (aggressiveness applied,
+ * transient burnout damping and vacations excluded). */
 export function weeklyCapacityMinutes(settings: PlannerSettings): number {
-  const perDay = Math.min(
-    Math.round(settings.dailyHours * 60),
-    settings.maxSessionsPerDay * settings.sessionMinutes,
+  const perDay = Math.round(
+    Math.min(
+      Math.round(settings.dailyHours * 60),
+      settings.maxSessionsPerDay * settings.sessionMinutes,
+    ) *
+      Math.min(
+        PLANNER_CONFIG.aggressivenessFactor[settings.aggressiveness] ?? 1,
+        1.25,
+      ),
   );
-  return perDay * studyDaysPerWeek(settings);
+  let weekend = 0;
+  if (settings.weekendStrategy === "light") {
+    // Roughly two weekend days, one usually the off day already.
+    weekend = perDay * (1 - PLANNER_CONFIG.weekendLightFactor);
+  }
+  return Math.round(perDay * studyDaysPerWeek(settings) - weekend);
 }

@@ -246,6 +246,51 @@ describe("planner integration", () => {
     }));
     useAppStore.getState().regeneratePlan();
     expect(useAppStore.getState().tasks[task.id].status).toBe("missed");
+    // Behaviour counters recorded the miss — its priority will rise.
+    const topic = getTopicState(useAppStore.getState().topics, task.topicId);
+    expect(topic.missedSessions).toBe(1);
+    expect(topic.postponeCount).toBe(1);
+  });
+
+  it("records postponement signals for skips and later moves", () => {
+    const [a, b] = Object.values(useAppStore.getState().tasks).filter(
+      (t) => t.status === "pending",
+    );
+    useAppStore.getState().skipTask(a.id);
+    expect(
+      getTopicState(useAppStore.getState().topics, a.topicId).postponeCount,
+    ).toBe(1);
+
+    useAppStore.getState().moveTask(b.id, addDays(b.date, 4));
+    expect(
+      getTopicState(useAppStore.getState().topics, b.topicId).postponeCount,
+    ).toBe(1);
+
+    // Reopening the skip withdraws the signal.
+    useAppStore.getState().reopenTask(a.id);
+    expect(
+      getTopicState(useAppStore.getState().topics, a.topicId).postponeCount,
+    ).toBe(0);
+  });
+
+  it("writes a daily intelligence snapshot on replan", () => {
+    const snapshots = useAppStore.getState().snapshots;
+    const today = todayStr();
+    expect(snapshots[today]).toBeDefined();
+    expect(snapshots[today].remainingMinutes).toBeGreaterThan(0);
+    expect(typeof snapshots[today].burnoutScore).toBe("number");
+  });
+
+  it("honours custom revision intervals from settings", () => {
+    useAppStore.getState().configurePlanner("2027-05-30", {
+      ...plannerSettings,
+      revisionIntervals: [2, 7],
+    } as never);
+    const topicId = "prelims.csat.comprehension";
+    useAppStore.getState().setStage(topicId, "first-reading");
+    expect(
+      getTopicState(useAppStore.getState().topics, topicId).nextRevisionAt,
+    ).toBe(addDays(todayStr(), 2));
   });
 });
 

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Settings2 } from "lucide-react";
 
+import { withPlannerDefaults } from "@/lib/planner/config";
 import { useAppStore } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,8 +19,12 @@ import { SetupForm } from "@/components/planner/setup-form";
 export function PlannerSettingsDialog() {
   const [open, setOpen] = React.useState(false);
   const examDate = useAppStore((state) => state.examDate);
-  const planner = useAppStore((state) => state.planner);
+  const storedPlanner = useAppStore((state) => state.planner);
   const configurePlanner = useAppStore((state) => state.configurePlanner);
+  const planner = React.useMemo(
+    () => (storedPlanner ? withPlannerDefaults(storedPlanner) : null),
+    [storedPlanner],
+  );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

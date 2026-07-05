@@ -7,7 +7,9 @@ import {
   type TopicStateMap,
 } from "@/lib/stages";
 import { PLANNER_CONFIG } from "./config";
+import { todayStr } from "./dates";
 import { resolveTopicIntel, unitIdOf, paperIdOf } from "./intel";
+import { priorityScore, type PriorityContext } from "./priority";
 
 /** Minutes a full first reading of this topic takes, given its resolved
  * difficulty and estimate (user override → curated → default). */
@@ -41,12 +43,16 @@ export function revisionMinutes(topicId: string, state: TopicState): number {
   return Math.max(PLANNER_CONFIG.minTaskMinutes, minutes);
 }
 
-/** True when the topic still has spaced revisions ahead of it. */
-export function needsRevisions(state: TopicState): boolean {
+/** True when the topic still has spaced revisions ahead of it.
+ * `totalRevisions` supports custom interval schedules of any length. */
+export function needsRevisions(
+  state: TopicState,
+  totalRevisions: number = PLANNER_CONFIG.revisionIntervals.length,
+): boolean {
   return (
     stageAtLeast(state.stage, "first-reading") &&
     !stageAtLeast(state.stage, "exam-ready") &&
-    state.revisionCount < PLANNER_CONFIG.revisionIntervals.length
+    state.revisionCount < totalRevisions
   );
 }
 
@@ -60,9 +66,11 @@ export type WorkItem = {
   paperId: string;
   /** Unit node id — third level of the rotation ("subject" bucket). */
   unitId: string;
-  /** 0 = critical … 3 = low; used to order work within a unit. */
-  priorityRank: number;
+  /** Dynamic priority score — higher schedules earlier within a unit. */
+  score: number;
   difficulty: Difficulty;
+  /** Reading already begun — gets continuity treatment (finish first). */
+  started: boolean;
 };
 
 /** A topic whose spaced revision is due on or before a given date. */
@@ -70,18 +78,24 @@ export type RevisionDue = {
   topicId: string;
   dueDate: string;
   minutes: number;
-  priorityRank: number;
+  score: number;
   difficulty: Difficulty;
 };
 
+const defaultContext = (): PriorityContext => ({
+  today: todayStr(),
+  examDate: "",
+});
+
 /**
- * Every leaf topic that still needs first-reading time, in syllabus order.
- * `alreadyPlanned` subtracts minutes covered by pinned pending tasks so a
- * replan never double-books a topic.
+ * Every leaf topic that still needs first-reading time, in syllabus order,
+ * scored by the dynamic priority engine. `alreadyPlanned` subtracts minutes
+ * covered by pinned pending tasks so a replan never double-books a topic.
  */
 export function buildWorkPool(
   topics: TopicStateMap,
   alreadyPlanned: Map<string, number> = new Map(),
+  ctx: PriorityContext = defaultContext(),
 ): WorkItem[] {
   const pool: WorkItem[] = [];
   for (const node of getAllNodes()) {
@@ -98,8 +112,9 @@ export function buildWorkPool(
         stageId: node.id.split(".")[0],
         paperId: paperIdOf(node.id),
         unitId: unitIdOf(node.id),
-        priorityRank: intel.priorityRank,
+        score: priorityScore(node.id, state, ctx).total,
         difficulty: intel.difficulty,
+        started: state.studiedMinutes > 0,
       });
     }
   }
@@ -108,33 +123,35 @@ export function buildWorkPool(
 
 /**
  * Topics with a spaced revision due on or before `byDate`, most urgent
- * first (earlier due date, then higher priority). `excludeTopics` skips
- * topics already covered by pinned revision tasks.
+ * first (earlier due date, then higher dynamic score). `excludeTopics`
+ * skips topics already covered by pinned revision tasks.
  */
 export function buildRevisionQueue(
   topics: TopicStateMap,
   byDate: string,
   excludeTopics: Set<string> = new Set(),
+  totalRevisions: number = PLANNER_CONFIG.revisionIntervals.length,
+  ctx: PriorityContext = defaultContext(),
 ): RevisionDue[] {
   const due: RevisionDue[] = [];
   for (const topicId of Object.keys(topics)) {
     if (excludeTopics.has(topicId)) continue;
     const state = getTopicState(topics, topicId);
-    if (!needsRevisions(state)) continue;
+    if (!needsRevisions(state, totalRevisions)) continue;
     if (!state.nextRevisionAt || state.nextRevisionAt > byDate) continue;
     const intel = resolveTopicIntel(topicId, state);
     due.push({
       topicId,
       dueDate: state.nextRevisionAt,
       minutes: revisionMinutes(topicId, state),
-      priorityRank: intel.priorityRank,
+      score: priorityScore(topicId, state, ctx).total,
       difficulty: intel.difficulty,
     });
   }
   due.sort(
     (a, b) =>
       a.dueDate.localeCompare(b.dueDate) ||
-      a.priorityRank - b.priorityRank ||
+      b.score - a.score ||
       a.topicId.localeCompare(b.topicId),
   );
   return due;

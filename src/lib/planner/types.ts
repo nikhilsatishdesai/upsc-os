@@ -25,6 +25,18 @@ export type PlannedTask = {
   createdBy: "auto" | "user";
 };
 
+/** One-per-day intelligence snapshot, kept for trend analytics. */
+export type DailySnapshot = {
+  /** 0–100 burnout score that day. */
+  burnoutScore: number;
+  /** 0–100 study health score; null for snapshots from older versions. */
+  healthScore: number | null;
+  /** First-reading minutes left across the syllabus. */
+  remainingMinutes: number;
+  /** Revisions overdue that day. */
+  revisionBacklog: number;
+};
+
 export type PlannerSettings = {
   /** YYYY-MM-DD. The Prelims date lives in the store as `examDate`. */
   mainsDate: string;
@@ -39,4 +51,23 @@ export type PlannerSettings = {
   maxSessionsPerDay: number;
   /** Preferred length of one study session. */
   sessionMinutes: number;
+
+  /* ---- Phase A additions (defaulted on read via withPlannerDefaults) ---- */
+  /** Days after each study/revision that the next revision falls due.
+   * Supports any number of rounds; the stage ladder caps at Revision 3. */
+  revisionIntervals: number[];
+  /** At most this many hard sessions per day. */
+  maxHardPerDay: number;
+  /** Tackle hard work first thing, or warm up with easier material. */
+  morningDifficulty: "hard-first" | "easy-first";
+  /** Weekends (Sat/Sun that aren't the off day): normal load, lighter load,
+   * or revision-focused. */
+  weekendStrategy: "normal" | "light" | "revision-heavy";
+  /** Vacation period — no auto-scheduling inside it (inclusive). */
+  vacationFrom: string | null;
+  vacationTo: string | null;
+  /** How much of theoretical capacity the planner fills. */
+  aggressiveness: "relaxed" | "standard" | "intense";
+  /** How strongly rising burnout reduces the planned load. */
+  burnoutSensitivity: "low" | "medium" | "high";
 };

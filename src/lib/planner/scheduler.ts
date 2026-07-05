@@ -1,5 +1,5 @@
 import type { TopicStateMap } from "@/lib/stages";
-import { PLANNER_CONFIG } from "./config";
+import { PLANNER_CONFIG, withPlannerDefaults } from "./config";
 import { dayCapacity, slotForSession } from "./capacity";
 import { addDays, weekdayOf } from "./dates";
 import {
@@ -12,6 +12,8 @@ import type { PlannedTask, PlannerSettings } from "./types";
 export type ScheduleInput = {
   settings: PlannerSettings;
   topics: TopicStateMap;
+  /** Prelims date ("" when unset) — feeds the dynamic priority scores. */
+  examDate?: string;
   /** Pending tasks that must be respected (pinned by the user), dated
    * `fromDate` or later. Their minutes reduce day capacity and topic
    * workload so nothing is double-booked. */
@@ -19,6 +21,8 @@ export type ScheduleInput = {
   /** Minutes already spent per date (completed tasks today) — consumed
    * capacity that regeneration must not reuse. */
   usedMinutesByDate?: Map<string, number>;
+  /** Transient capacity damping (burnout prevention), 0–1. */
+  loadFactor?: number;
   /** First day to plan (usually today). */
   fromDate: string;
   horizonDays?: number;
@@ -57,9 +61,9 @@ function createRotation(pool: WorkItem[]) {
     itemsByUnit.get(item.unitId)!.push(item);
   }
 
-  // Priority ordering within each unit (stable: syllabus order tiebreak).
+  // Dynamic-score ordering within each unit (stable: syllabus tiebreak).
   for (const items of itemsByUnit.values()) {
-    items.sort((a, b) => a.priorityRank - b.priorityRank);
+    items.sort((a, b) => b.score - a.score);
   }
 
   let stageCursor = 0;
@@ -150,14 +154,17 @@ export function isRecoveryDay(
  */
 export function generateSchedule(input: ScheduleInput): PlannedTask[] {
   const {
-    settings,
     topics,
+    examDate = "",
     pinnedTasks,
     usedMinutesByDate = new Map<string, number>(),
+    loadFactor = 1,
     fromDate,
     horizonDays = PLANNER_CONFIG.horizonDays,
     makeId = defaultMakeId,
   } = input;
+  // Tolerate settings persisted by older app versions.
+  const settings = withPlannerDefaults(input.settings);
 
   const pinnedStudyByTopic = new Map<string, number>();
   const pinnedRevisionTopics = new Set<string>();
@@ -177,13 +184,21 @@ export function generateSchedule(input: ScheduleInput): PlannedTask[] {
     );
   }
 
-  const pool = buildWorkPool(topics, pinnedStudyByTopic);
-  const rotation = createRotation(pool);
+  const ctx = { today: fromDate, examDate };
+  const pool = buildWorkPool(topics, pinnedStudyByTopic, ctx);
+  // Continuity first: readings already begun finish before fresh topics
+  // enter the mix — they skip the subject rotation's revisit cadence.
+  const continuity = pool
+    .filter((item) => item.started)
+    .sort((a, b) => b.score - a.score);
+  const rotation = createRotation(pool.filter((item) => !item.started));
   const horizonEnd = addDays(fromDate, horizonDays - 1);
   const revisionQueue = buildRevisionQueue(
     topics,
     horizonEnd,
     pinnedRevisionTopics,
+    settings.revisionIntervals.length,
+    ctx,
   );
   let revisionIndex = 0;
 
@@ -214,20 +229,32 @@ export function generateSchedule(input: ScheduleInput): PlannedTask[] {
   for (let offset = 0; offset < horizonDays; offset++) {
     const date = addDays(fromDate, offset);
     if (isRecoveryDay(date, offset, settings)) continue;
-    const day = dayCapacity(date, settings);
+    const day = dayCapacity(date, settings, loadFactor);
     if (day.capacityMinutes <= 0) continue;
+
+    const weekday = weekdayOf(date);
+    const isWeekend = weekday === 0 || weekday === 6;
+    const revisionCap =
+      settings.weekendStrategy === "revision-heavy" && isWeekend
+        ? 1
+        : revisionShareCap;
 
     const reserved =
       (pinnedMinutesByDate.get(date) ?? 0) +
       (usedMinutesByDate.get(date) ?? 0);
     let capacityLeft = day.capacityMinutes - reserved;
     let sessionIndex = Math.ceil(reserved / settings.sessionMinutes);
+    let hardUsed = 0;
+    // "Easy-first" mornings behave as if a hard session just happened,
+    // steering the first pick towards lighter material.
+    lastDifficultyHard = settings.morningDifficulty === "easy-first";
 
     // 1. Due revisions first (time-critical), capped per day so fresh
-    // study never starves entirely under a revision backlog.
+    // study never starves entirely under a revision backlog — except on
+    // revision-heavy weekends, where revisions may take the whole day.
     let revisionBudget = Math.min(
       capacityLeft,
-      Math.round(day.capacityMinutes * revisionShareCap),
+      Math.round(day.capacityMinutes * revisionCap),
     );
     while (
       revisionIndex < revisionQueue.length &&
@@ -247,22 +274,59 @@ export function generateSchedule(input: ScheduleInput): PlannedTask[] {
       revisionBudget -= minutes;
       sessionIndex += 1;
       lastDifficultyHard = due.difficulty === "hard";
+      if (due.difficulty === "hard") hardUsed += 1;
     }
 
-    // 2. Priority-aware study fill with hard-topic spacing.
-    while (capacityLeft >= minTaskMinutes && sessionIndex < day.sessions) {
-      let item = rotation.next();
-      if (!item) break;
-      if (lastDifficultyHard && item.difficulty === "hard") {
-        for (let look = 0; look < hardSpacingLookahead; look++) {
-          const alternative = rotation.next();
-          if (!alternative) break;
-          if (alternative.difficulty !== "hard") {
-            item = alternative;
-            break;
-          }
-        }
+    // 2. Continuity: finish partially-read topics before anything fresh
+    // (one per day at most keeps the day varied).
+    if (
+      continuity.length > 0 &&
+      capacityLeft >= minTaskMinutes &&
+      sessionIndex < day.sessions
+    ) {
+      const item = continuity[0];
+      const minutes = Math.min(
+        settings.sessionMinutes,
+        item.remaining,
+        capacityLeft,
+      );
+      if (minutes >= Math.min(minTaskMinutes, item.remaining)) {
+        tasks.push(
+          makeTask(item.topicId, date, sessionIndex, day.sessions, minutes, "study"),
+        );
+        item.remaining -= minutes;
+        capacityLeft -= minutes;
+        sessionIndex += 1;
+        lastDifficultyHard = item.difficulty === "hard";
+        if (item.difficulty === "hard") hardUsed += 1;
+        if (item.remaining <= 0) continuity.shift();
       }
+    }
+
+    // 3. Score-ordered study fill with cognitive-load balancing:
+    // never two hard sessions back-to-back when avoidable, and never more
+    // than `maxHardPerDay` hard sessions in a day (hard stop). The sweep
+    // may pass many hard-over-quota candidates — their turn simply comes
+    // again on a later day.
+    while (capacityLeft >= minTaskMinutes && sessionIndex < day.sessions) {
+      let item: WorkItem | null = null;
+      let softFallback: WorkItem | null = null;
+      let softLooks = 0;
+      for (let look = 0; look < PLANNER_CONFIG.pickSweepLimit; look++) {
+        const candidate = rotation.next();
+        if (!candidate) break;
+        const hard = candidate.difficulty === "hard";
+        if (hard && hardUsed >= settings.maxHardPerDay) continue;
+        if (hard && lastDifficultyHard && softLooks < hardSpacingLookahead) {
+          softFallback = softFallback ?? candidate;
+          softLooks += 1;
+          continue;
+        }
+        item = candidate;
+        break;
+      }
+      item = item ?? softFallback;
+      if (!item) break;
 
       const minutes = Math.min(
         settings.sessionMinutes,
@@ -278,6 +342,7 @@ export function generateSchedule(input: ScheduleInput): PlannedTask[] {
       capacityLeft -= minutes;
       sessionIndex += 1;
       lastDifficultyHard = item.difficulty === "hard";
+      if (item.difficulty === "hard") hardUsed += 1;
     }
   }
 

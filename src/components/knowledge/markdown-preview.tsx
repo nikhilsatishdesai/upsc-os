@@ -88,6 +88,18 @@ function Blockquote({ children }: { children?: React.ReactNode }) {
   );
 }
 
+/**
+ * Ensure a callout header (`> [!tip] Title`) forms its own paragraph even
+ * when the body follows on the next quoted line — otherwise the header and
+ * body merge into one paragraph and the callout can't be detected.
+ */
+function normalizeCallouts(markdown: string): string {
+  return markdown.replace(
+    /^(>\s*\[!(?:note|tip|warning|important)\][^\n]*)$/gim,
+    "$1\n>",
+  );
+}
+
 /** Renders knowledge-note markdown in the app's design language. */
 export function MarkdownPreview({ markdown }: { markdown: string }) {
   if (markdown.trim() === "") {
@@ -167,7 +179,7 @@ export function MarkdownPreview({ markdown }: { markdown: string }) {
           ),
         }}
       >
-        {markdown}
+        {normalizeCallouts(markdown)}
       </ReactMarkdown>
     </div>
   );

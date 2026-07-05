@@ -173,18 +173,20 @@ export function CurrentAffairsSection({ topicId }: { topicId: string }) {
                       {affair.summary}
                     </p>
                   )}
-                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                     <Badge
                       variant="outline"
                       className={IMPORTANCE_META[affair.importance].className}
                     >
                       {IMPORTANCE_META[affair.importance].label}
                     </Badge>
-                    {affair.date}
-                    {affair.source && ` · ${affair.source}`}
-                    {affair.topicIds.length > 1 &&
-                      ` · linked to ${affair.topicIds.length} topics`}
-                  </p>
+                    <span>
+                      {affair.date}
+                      {affair.source && ` · ${affair.source}`}
+                      {affair.topicIds.length > 1 &&
+                        ` · linked to ${affair.topicIds.length} topics`}
+                    </span>
+                  </div>
                 </div>
                 <BookmarkMenu
                   targetType="current-affair"

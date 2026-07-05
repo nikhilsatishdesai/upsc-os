@@ -10,6 +10,7 @@ import { RecentTracker } from "@/components/syllabus/recent-tracker";
 import { StatusSelect } from "@/components/syllabus/status-select";
 import { SubtreeProgress } from "@/components/syllabus/subtree-progress";
 import { TopicMeta } from "@/components/syllabus/topic-meta";
+import { TopicWorkspace } from "@/components/knowledge/topic-workspace";
 
 export const dynamicParams = false;
 
@@ -85,13 +86,7 @@ export default async function TopicPage({
       {leaf && (
         <>
           <TopicMeta topicId={node.id} />
-          <p className="rounded-xl border bg-card p-4 text-sm text-muted-foreground shadow-sm">
-            Advance this topic through its study stages with the button above
-            — every stage counts towards the preparation percentage of the
-            sections above it. The planner schedules unstudied topics
-            automatically. Notes, flashcards and previous-year questions
-            attach here in upcoming versions.
-          </p>
+          <TopicWorkspace topicId={node.id} />
         </>
       )}
     </div>

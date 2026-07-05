@@ -5,58 +5,45 @@
 
 ## Current Milestone
 
-**Phase A "Intelligence Core" — CODE-COMPLETE.** All milestones committed and live-verified. **Still NOT deployed** — founder must create GitHub + Vercel accounts (DEPLOYMENT.md has click-by-click steps). This remains the single blocking item since V1.
+**Phase B "Knowledge OS" — CODE-COMPLETE.** Every leaf topic is a full learning workspace. **Still NOT deployed** — founder must create GitHub + Vercel accounts (DEPLOYMENT.md, click-by-click). This has been the single blocking item since V1; remind the founder every session.
 
-Phase A milestones (each one git commit, restorable):
-1. ✅ Adaptive core: dynamic priority, confidence decay, behaviour history, settings expansion, scheduler v3, store v4
-2. ✅ Forecast v2 (probabilities, observed pace, CI), recommendation engine, study health score, daily snapshots
-3. ✅ Explainability (+Why-this-session), dashboard insights, predictive analytics, mission reasoning
-4. ✅ Live verification, burnout-recommendation fix, docs
+Phase B milestones (each one git commit, restorable):
+1. ✅ Knowledge data layer: entity types, separate knowledge store, backup v5, storage meter
+2. ✅ Rich notes editor (markdown/GFM/callouts/highlighting/auto-save) + quick notes + workspace shell
+3. ✅ Flashcards (review mode) + keywords + book references + resources
+4. ✅ PYQs + current affairs (multi-topic) + bookmarks/collections + study history & timeline + AI placeholder section
+5. ✅ Knowledge search (fuzzy, filters) + dashboard Knowledge card
+6. ✅ Live verification (2 fixes) + docs
 
 ## Completed Work (cumulative)
 
-- **V1 Foundation:** syllabus browser (235 topics), stages, dashboard, search, settings/backup, landing.
-- **V2 Compass:** adaptive planner (wizard, Today/Week, DnD, task actions), dashboard integration.
-- **V3 Intelligence Engine:** curated exam intel, priority-aware scheduling, spaced revisions (3/10/30), difficulty balancing, forecast v1, burnout indicator, Today's Mission.
-- **Phase A Intelligence Core:** see CHANGELOG 0.4.0. 92 tests green, lint clean, build = 303 pages. Live-verified: advanced setup saves, Why-dialog explains real reasons, insights card (health badge + reasoned recommendations), forecast probabilities (78%/98% shown), v3→v4 migration incl. overdue revision rescheduled after the off day.
+V1 foundation → V2 planner → V3 intelligence engine → Phase A adaptive core → **Phase B knowledge workspace**. 110 tests green, lint clean, build = 303 static pages. Live-verified end-to-end: note autosave + preview (callouts/tables/checklists/highlighted code), flashcard review streaks, bookmark collections, multi-entity fuzzy search with filters, dashboard knowledge stats.
 
-## Current Architecture (intelligence layer)
+## Current Architecture (knowledge layer)
 
-Independent, individually-tested services in `src/lib/planner/` — business logic never lives in components:
-- `config.ts` — EVERY tunable (weights, intervals, thresholds, damping) + `withPlannerDefaults` (old stored settings gain new fields on read; never migrate UI-side).
-- `intel.ts` + `src/data/topic-intel.ts` — curated exam importance, cascading resolution (user → topic → ancestors → config).
-- `priority.ts` — dynamic score with reasons: base + confidence gap + revision urgency + postponements + exam proximity.
-- `confidence.ts` — effective confidence (derived; stored user rating never mutated).
-- `workload.ts` — pools/queues (score-ordered; `started` items get continuity), estimates, revision minutes.
-- `capacity.ts` — day/weekly capacity incl. aggressiveness, weekend strategy, vacations, damping factor.
-- `scheduler.ts` — per day: due revisions (≤60% cap; weekends uncapped if revision-heavy) → continuity (finish started readings) → score-ordered rotation (stage→paper→unit→topic) with hard-spacing, maxHardPerDay (strict), easy-first mornings, pick-sweep (see gotcha below).
-- `forecast.ts` — workload vs capacity blended with observed pace; logistic finish probabilities; CI from pace variability.
-- `analytics.ts` — descriptive stats + `burnoutIndicator` (display, load-aware) + `fatigueIndicator` (behaviour-only — DRIVES damping & the burnout recommendation; see gotcha).
-- `recommendations.ts` — rule set, every item has `why`.
-- `health.ts` — 7-component weighted score.
-- `explain.ts` — reconstructs per-task reasons from the same scoring (no stored prose) + mission reasoning line.
-- Store v4 (`app-store.ts`): behaviour counters on skip/move-later/miss/complete; custom revision intervals honoured; daily snapshots (60d); regenerate = missed→history+counters, pinned survive, completed-today reserves capacity, fatigue damping.
+- **Two persisted stores:** `upsc-os-store` (planner, v4) and `upsc-os-knowledge` (v1) — knowledge writes don't re-serialize planner state and vice versa. Backup format v5 = one file containing both (`knowledge` section; pre-v5 files import with knowledge untouched). Reset in Settings clears both.
+- **Entities** (`src/lib/knowledge/types.ts`): richNotes (one per topic, `ai` placeholder block), quickNotes, flashcards (`ai` slot for SRS), keywords, bookRefs, resources, pyqs (`aiExplanation`), currentAffairs (multi-`topicIds`, `aiSummary`), bookmarks + collections (4 built-ins, fixed ids), timeline events (capped 1500).
+- **Services** (`src/lib/knowledge/`): `config.ts` (tunables), `notes.ts` (word counts, reading time, snippet insertion — pure), `search.ts` (fuzzy tiers: substring > tokens > subsequence; searches syllabus too), `insights.ts` (due cards, review queue, per-topic history, merged timeline, knowledge stats).
+- **Derived, never double-stored:** study history & timeline merge knowledge events with planner task history at read time.
+- **UI:** `src/components/knowledge/` — topic-workspace assembles collapsible KnowledgeSections on leaf topic pages; markdown-preview renders GFM + callouts (`> [!note|tip|warning|important]`, normalized pre-render) + theme-aware hljs tokens (globals.css); bookmark-menu works for any target type; topic-picker links extra topics.
+- Planner engine untouched (Phase B constraint honoured). Flashcards deliberately independent of the revision engine.
 
-## CRITICAL design gotchas (cost real debugging — do not relearn)
+## Key gotchas (see also the Phase-A list — still valid)
 
-1. **Never feed planner output back into planner input.** A fresh plan always sits at ~100% of capacity; using planned-load burnout to damp capacity made the plan shrink itself (3→2 sessions/day). Damping and the burnout recommendation use `fatigueIndicator` (real streaks + completed hard work). The display indicator may include planned load.
-2. **Filtered rotation picks need a wide sweep** (`pickSweepLimit` 40 > unit count): with a small lookahead, hard-over-quota candidates exhausted the pick loop and days ended half-empty.
-3. **Continuity beats rotation for started topics** — without it a 150-min topic waits ~10 days for its unit's next turn.
-4. `getTopicState` returns cached stable references (WeakMap) — required by zustand selectors; new TopicState fields = add default, done (auto-backfill).
-5. Never `npm run build` while dev server runs → use `npm run build:check`.
+1. **Badge/Card render `<div>`s — never place them inside `<p>`** (hydration errors).
+2. Callout headers need their own paragraph — `normalizeCallouts` handles authoring without blank quote lines.
+3. Gate commands with real exit codes (`cmd > log 2>&1; RC=$?`) — piping to grep/tail eats failures.
+4. lucide has no brand icons (no `Youtube`) — use generic equivalents.
+5. localStorage budget ~5MB total; usage meter in Settings. IndexedDB is the planned escape hatch when sync (V5 "Bridge") arrives — notes are text-only, images by URL.
 
 ## Remaining Tasks
 
-- **Deploy (V1→Phase A):** founder creates GitHub + Vercel accounts → DEPLOYMENT.md. Remind every session.
-- Next feature phases (founder's naming): Knowledge Workspace (notes), PYQ Intelligence, Current Affairs, AI Mentor, Revision OS, Test Analytics. Topic model extends by adding defaulted fields — no refactor needed.
-
-## Known Bugs
-
-- None open. KNOWN_ISSUES.md documents accepted limitations + the build:check rule.
+- **Deploy (V1→Phase B):** founder creates GitHub + Vercel accounts → DEPLOYMENT.md.
+- Future phases per founder's naming: PYQ Intelligence (bulk question bank + weightage analytics on top of the pyq entities), Current Affairs OS, AI Mentor (placeholders already wired), Revision OS, Test Analytics.
 
 ## Commands Required
 
-- `npm run dev` · `npm test` (92) · `npm run lint` · `npm run build:check`
+- `npm run dev` · `npm test` (110) · `npm run lint` · `npm run build:check` (never plain `build` while dev server runs)
 
 ## Deployment Status
 
@@ -64,9 +51,9 @@ Independent, individually-tested services in `src/lib/planner/` — business log
 
 ## Environment Facts
 
-- Founder is a **non-programmer** — plain English, click-by-click, make all technical decisions.
+- Founder is a **non-programmer** — plain English, click-by-click steps, all technical decisions made for him.
 - Windows 11, Node v25, TS 6 strict, Next 15.5. Preview config in `.claude/launch.json`.
 
 ## Next Recommended Step
 
-Deploy, then pick the next module. Tune behavior only via `config.ts` / `topic-intel.ts`.
+Deploy, then choose the next module (PYQ Intelligence pairs naturally with the new pyq entities). Tune knowledge behavior in `src/lib/knowledge/config.ts`.

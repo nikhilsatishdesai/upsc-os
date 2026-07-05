@@ -13,6 +13,12 @@
 - **End-to-end (browser automation) tests deferred to V5** when auth flows arrive; V1 ships with 23 unit/data-integrity tests plus a founder manual test checklist (see DEPLOYMENT.md).
 - **Prelims topic breakdown:** UPSC publishes Prelims GS as broad headings; the app expands them into the standard study breakdown. Mains papers follow the official syllabus text exactly.
 
+## Accepted limitations (by design in Phase B)
+
+- **Images in notes are referenced by URL**, not stored locally — storing image data would exhaust the ~5 MB browser-storage budget. A storage-usage meter lives in Settings; larger storage (IndexedDB) arrives with the cloud-sync phase.
+- **Flashcards are independent of the planner's revision engine** by design; their spaced-repetition scheduling arrives with the Revision OS phase (metadata already in place).
+- **Bookmark collections are managed inline** (star menus); a dedicated collections browser can come with a later phase.
+
 ## Accepted limitations (by design in Phase A)
 
 - **The burnout indicator on Analytics includes planned load**, so it reads "elevated" whenever the coming week is fully planned — that is informative pressure, not a malfunction. Automatic capacity damping and the burnout *recommendation* use real fatigue only (streaks + completed hard work).

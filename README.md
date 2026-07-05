@@ -2,9 +2,12 @@
 
 **An intelligent operating system for UPSC aspirants** — plan, study, revise, practice, and (soon) get AI-powered mentorship across the entire Prelims → Mains → Interview journey.
 
-> Phase A (Intelligence Core) — local-first: all your data stays in your browser. No account needed.
+> Phase B (Knowledge OS) — local-first: all your data stays in your browser. No account needed.
 
 ## What it does today
+
+- **Topic workspaces** — every syllabus topic is a complete knowledge base: rich markdown notes (tables, checklists, callouts, code), quick notes & mnemonics, flashcards with review mode, keywords, book references, resources, previous-year questions, current-affairs links, bookmarks, and a full study timeline
+- **Knowledge search** — Ctrl+K fuzzy-searches everything you've ever written or saved, with type filters
 
 - **Adaptive planning engine** — priorities evolve with your behaviour: avoided topics rise, overdue revisions surge, weak-confidence material resurfaces, started readings finish first, and missed work redistributes automatically without overloading any day
 - **Explainable planning** — ask any session "Why this?" and get the actual reasons (exam importance, confidence, urgency, balancing); nothing in the plan is mysterious

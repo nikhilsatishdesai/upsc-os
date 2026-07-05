@@ -2,6 +2,26 @@
 
 All notable changes to UPSC OS are documented here.
 
+## [0.5.0] — Phase B "Knowledge OS" — 2026-07-05 (code complete; deployment pending)
+
+### Added
+- **Topic workspaces** — every leaf syllabus topic is now a complete learning workspace with collapsible sections: Notes, Quick Notes, Flashcards, Keywords, Book References, Resources, PYQs, Current Affairs, Study History & Timeline, plus a marked (disabled) AI extension point
+- **Rich notes** — markdown editor with Write/Preview, an 11-snippet toolbar, GFM tables and checklists, syntax-highlighted code (theme-aware), Obsidian-style callouts (`> [!tip] …`), auto-save with version timestamps, character/word counts and reading time
+- **Quick notes** — typed one-liners: mnemonics, revision tricks, memory hooks, definitions, formulae
+- **Flashcards** — front/back/tags/difficulty with review counts, correct/incorrect streaks, a due indicator, and a flip-through review mode (due-first queue); metadata ready for a future spaced-repetition engine, independent of the planner's revision engine
+- **Keywords** — typed chips (articles, committees, schemes, acts, cases, thinkers…), all searchable
+- **Book references** — book/chapter/pages/remarks with completion ticks; **Resource library** — typed links (PDF, YouTube, Drive, website…)
+- **PYQs per topic** — year, paper, marks, difficulty, attempted/solved, expected answer, personal notes; AI-explanation slot reserved
+- **Current affairs linking** — importance, source, exam relevance; one article links to many topics with unlink-vs-delete semantics
+- **Bookmarks** — star menu on topics, PYQs and articles; built-in collections (Must Revise, Weak Areas, Essay Material, Interview Notes) plus custom ones
+- **Study history & knowledge timeline** — derived per-topic stats (time invested, sessions, revisions, card reviews, PYQs solved) and a merged learning-history feed of knowledge and planner events
+- **Knowledge search** — Ctrl+K now fuzzy-searches topics, notes, quick notes, keywords, flashcards, PYQs, resources, current affairs and books, with type filter chips
+- **Knowledge dashboard card** — growth stats, writing/reading statistics, due flashcards, recently edited notes, most-studied subject
+- **Storage** — separate `upsc-os-knowledge` store keeps planner writes fast; backup format v5 embeds knowledge (older backups still import); storage-usage meter in Settings
+
+### Fixed (found in live verification)
+- Callout boxes merged with their body paragraph; Badge-inside-paragraph hydration warning
+
 ## [0.4.0] — Phase A "Intelligence Core" — 2026-07-05 (code complete; deployment pending)
 
 ### Added

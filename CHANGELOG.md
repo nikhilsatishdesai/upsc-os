@@ -2,6 +2,18 @@
 
 All notable changes to UPSC OS are documented here.
 
+## [0.5.1] — Study Scope Management — 2026-07-05 (code complete; deployment pending)
+
+### Added
+- **Planning states per topic** — Included (default), Paused (out of the schedule, workload still forecast), Excluded (invisible to planning; recorded progress preserved)
+- **Scope tab in the Planner** — include/pause/exclude whole papers, units or individual topics with live counts; everything replans instantly
+- **Focus collections** — point fresh study at any bookmark collection (Weak Topics, Prelims Revision, Mains Priority…); revisions always protect the whole included scope
+- **Manual planning** — a Plan menu on every topic page: study today, tomorrow, or on the freest day this week (pinned sessions that survive replans); planning state also editable right there
+- Dashboard, forecast, workload and analytics all follow scope changes automatically
+
+### Compatibility
+- Fully backward compatible: existing data gains `planState: "included"` transparently; backup files round-trip the new fields
+
 ## [0.5.0] — Phase B "Knowledge OS" — 2026-07-05 (code complete; deployment pending)
 
 ### Added

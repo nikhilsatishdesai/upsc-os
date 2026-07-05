@@ -5,7 +5,13 @@
 
 ## Current Milestone
 
-**Phase B "Knowledge OS" — CODE-COMPLETE.** Every leaf topic is a full learning workspace. **Still NOT deployed** — founder must create GitHub + Vercel accounts (DEPLOYMENT.md, click-by-click). This has been the single blocking item since V1; remind the founder every session.
+**Study Scope Management — CODE-COMPLETE** (on top of Phase B "Knowledge OS"). **Still NOT deployed** — founder must create GitHub + Vercel accounts (DEPLOYMENT.md, click-by-click). This has been the single blocking item since V1; remind the founder every session.
+
+### Study Scope (0.5.1) essentials
+- `TopicState.planState`: "included" | "paused" | "excluded" (default-merged — no migration). Semantics: paused = out of schedule but IN forecast; excluded = out of everything, progress preserved.
+- Engines: `buildWorkPool`/`buildRevisionQueue` only take included topics; pool accepts `onlyTopics` focus set; forecast skips excluded only. Scheduler input `studyTopicFilter`.
+- Store: `focusCollectionId` (reads knowledge-store bookmark collections at replan — one-way dependency, no cycle), `setPlanState(ForSubtree)`, `setFocusCollection`, `planTopicNow(today|tomorrow|this-week)` (pinned user task + rebalance; "this week" = freest day). Pinned tasks: excluded topic → dropped; paused → dropped; finished-topic user pins survive (extra practice).
+- UI: Planner gains a **Scope** tab (papers→units→topics tri-state with bulk + counts, focus-collection select); topic pages gain a **Plan** menu (manual planning + plan-state radio).
 
 Phase B milestones (each one git commit, restorable):
 1. ✅ Knowledge data layer: entity types, separate knowledge store, backup v5, storage meter
@@ -43,7 +49,7 @@ V1 foundation → V2 planner → V3 intelligence engine → Phase A adaptive cor
 
 ## Commands Required
 
-- `npm run dev` · `npm test` (110) · `npm run lint` · `npm run build:check` (never plain `build` while dev server runs)
+- `npm run dev` · `npm test` (119) · `npm run lint` · `npm run build:check` (never plain `build` while dev server runs)
 
 ## Deployment Status
 

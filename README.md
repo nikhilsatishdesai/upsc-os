@@ -8,6 +8,7 @@
 
 - **Topic workspaces** — every syllabus topic is a complete knowledge base: rich markdown notes (tables, checklists, callouts, code), quick notes & mnemonics, flashcards with review mode, keywords, book references, resources, previous-year questions, current-affairs links, bookmarks, and a full study timeline
 - **Knowledge search** — Ctrl+K fuzzy-searches everything you've ever written or saved, with type filters
+- **Study scope control** — include, pause or exclude any paper, unit or topic; focus the planner on a collection (Weak Topics, Prelims Revision…); manually plan any topic for today, tomorrow or this week
 
 - **Adaptive planning engine** — priorities evolve with your behaviour: avoided topics rise, overdue revisions surge, weak-confidence material resurfaces, started readings finish first, and missed work redistributes automatically without overloading any day
 - **Explainable planning** — ask any session "Why this?" and get the actual reasons (exam importance, confidence, urgency, balancing); nothing in the plan is mysterious

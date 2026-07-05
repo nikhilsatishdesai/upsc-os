@@ -24,6 +24,9 @@ export type ScheduleInput = {
   usedMinutesByDate?: Map<string, number>;
   /** Transient capacity damping (burnout prevention), 0–1. */
   loadFactor?: number;
+  /** Restrict fresh study to these topics (a focus collection). Revisions
+   * are never restricted — memory maintenance covers the whole scope. */
+  studyTopicFilter?: Set<string> | null;
   /** First day to plan (usually today). */
   fromDate: string;
   horizonDays?: number;
@@ -157,6 +160,7 @@ export function generateSchedule(input: ScheduleInput): PlannedTask[] {
     pinnedTasks,
     usedMinutesByDate = new Map<string, number>(),
     loadFactor = 1,
+    studyTopicFilter = null,
     fromDate,
     horizonDays = PLANNER_CONFIG.horizonDays,
     makeId = defaultMakeId,
@@ -183,7 +187,7 @@ export function generateSchedule(input: ScheduleInput): PlannedTask[] {
   }
 
   const ctx = { today: fromDate, examDate };
-  const pool = buildWorkPool(topics, pinnedStudyByTopic, ctx);
+  const pool = buildWorkPool(topics, pinnedStudyByTopic, ctx, studyTopicFilter);
   // Continuity first: readings already begun finish before fresh topics
   // enter the mix — they skip the subject rotation's revisit cadence.
   const continuity = pool

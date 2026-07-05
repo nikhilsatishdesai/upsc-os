@@ -17,8 +17,9 @@ import { PlannerSettingsDialog } from "@/components/planner/settings-dialog";
 import { TodayView } from "@/components/planner/today-view";
 import { WeekView } from "@/components/planner/week-view";
 import { AnalyticsView } from "@/components/planner/analytics-view";
+import { ScopeView } from "@/components/planner/scope-view";
 
-const TABS = ["Today", "Week", "Analytics"] as const;
+const TABS = ["Today", "Week", "Scope", "Analytics"] as const;
 type Tab = (typeof TABS)[number];
 
 export function PlannerView() {
@@ -133,6 +134,7 @@ export function PlannerView() {
 
       {tab === "Today" && <TodayView settings={planner} />}
       {tab === "Week" && <WeekView settings={planner} />}
+      {tab === "Scope" && <ScopeView />}
       {tab === "Analytics" && <AnalyticsView settings={planner} />}
     </div>
   );

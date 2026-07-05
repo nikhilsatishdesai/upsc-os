@@ -12,6 +12,7 @@ import { SubtreeProgress } from "@/components/syllabus/subtree-progress";
 import { TopicMeta } from "@/components/syllabus/topic-meta";
 import { TopicWorkspace } from "@/components/knowledge/topic-workspace";
 import { BookmarkMenu } from "@/components/knowledge/bookmark-menu";
+import { PlanTopicMenu } from "@/components/planner/plan-topic-menu";
 
 export const dynamicParams = false;
 
@@ -83,6 +84,7 @@ export default async function TopicPage({
               label={node.title}
               size="lg"
             />
+            <PlanTopicMenu topicId={node.id} />
             <StatusSelect topicId={node.id} size="lg" />
           </div>
         )}

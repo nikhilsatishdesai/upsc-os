@@ -1,16 +1,19 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
-import { getNode } from "@/lib/syllabus";
+import { getLeafIds, getNode } from "@/lib/syllabus";
+import { makeId } from "@/lib/id";
 import {
   DEFAULT_TOPIC_STATE,
   getTopicState,
   isDifficulty,
+  isPlanState,
   isPriority,
   isStudyStage,
   revisionCountForStage,
   stageIndex,
   type Confidence,
+  type PlanState,
   type StudyStage,
   type TopicState,
   type TopicStateMap,
@@ -23,6 +26,7 @@ import {
   totalRemainingMinutes,
 } from "@/lib/planner/workload";
 import { generateSchedule } from "@/lib/planner/scheduler";
+import { dayCapacity, slotForSession } from "@/lib/planner/capacity";
 import { burnoutIndicator, fatigueIndicator } from "@/lib/planner/analytics";
 import { studyHealth } from "@/lib/planner/health";
 import { addDays, isValidDateStr, todayStr } from "@/lib/planner/dates";
@@ -41,6 +45,7 @@ import type {
 import {
   exportKnowledge,
   sanitizeKnowledgeExport,
+  useKnowledgeStore,
   type KnowledgeExport,
 } from "@/store/knowledge-store";
 
@@ -64,8 +69,20 @@ type AppState = {
   lastPlannedAt: string | null;
   /** One intelligence snapshot per day, for trend analytics. */
   snapshots: Record<string, DailySnapshot>;
+  /** Bookmark collection the planner's fresh study is focused on
+   * (null = the whole included scope). Revisions are never restricted. */
+  focusCollectionId: string | null;
 
   setStage: (topicId: string, stage: StudyStage) => void;
+  setPlanState: (topicId: string, planState: PlanState) => void;
+  /** Bulk include/pause/exclude for every leaf under a syllabus node. */
+  setPlanStateForSubtree: (nodeId: string, planState: PlanState) => void;
+  setFocusCollection: (collectionId: string | null) => void;
+  /** Manual planning: pin a study session for any topic. */
+  planTopicNow: (
+    topicId: string,
+    when: "today" | "tomorrow" | "this-week",
+  ) => void;
   setTopicMeta: (
     topicId: string,
     meta: Partial<
@@ -104,6 +121,7 @@ export type ExportedState = {
   tasks: Record<string, PlannedTask>;
   lastPlannedAt: string | null;
   snapshots: Record<string, DailySnapshot>;
+  focusCollectionId: string | null;
   /** Knowledge OS data (notes, cards, PYQs…); null in pre-v5 backups. */
   knowledge: KnowledgeExport | null;
 };
@@ -117,6 +135,7 @@ const initialData = {
   tasks: {} as Record<string, PlannedTask>,
   lastPlannedAt: null as string | null,
   snapshots: {} as Record<string, DailySnapshot>,
+  focusCollectionId: null as string | null,
 };
 
 /** Update one topic immutably, applying defaults first. */
@@ -164,6 +183,7 @@ function regenerate(state: {
   tasks: Record<string, PlannedTask>;
   examDate: string;
   snapshots: Record<string, DailySnapshot>;
+  focusCollectionId: string | null;
 }): {
   tasks: Record<string, PlannedTask>;
   topics: TopicStateMap;
@@ -196,8 +216,17 @@ function regenerate(state: {
         task.kind === "revision"
           ? !needsRevisions(topic, intervals.length)
           : remainingStudyMinutes(task.topicId, topic) <= 0;
-      // Auto tasks are regenerated; pinned tasks for finished work drop.
-      if (task.createdBy === "auto" || stale) continue;
+      const scopedOut = topic.planState === "excluded";
+      // Auto tasks are regenerated; pinned tasks drop when their work is
+      // finished or the topic leaves the study scope entirely. A manually
+      // pinned session on an already-read topic (extra practice) survives.
+      if (
+        task.createdBy === "auto" ||
+        scopedOut ||
+        (stale && task.createdBy !== "user")
+      )
+        continue;
+      if (task.createdBy === "user" && topic.planState === "paused") continue;
     }
     tasks[task.id] = task;
   }
@@ -232,6 +261,24 @@ function regenerate(state: {
           ? damping.elevated
           : 1;
 
+    // Focus collection: fresh study restricted to its topics (revisions
+    // keep covering the whole included scope).
+    let studyTopicFilter: Set<string> | null = null;
+    if (state.focusCollectionId) {
+      const knowledge = useKnowledgeStore.getState();
+      if (knowledge.collections[state.focusCollectionId]) {
+        studyTopicFilter = new Set(
+          Object.values(knowledge.bookmarks)
+            .filter(
+              (bookmark) =>
+                bookmark.targetType === "topic" &&
+                bookmark.collectionId === state.focusCollectionId,
+            )
+            .map((bookmark) => bookmark.targetId),
+        );
+      }
+    }
+
     for (const task of generateSchedule({
       settings,
       topics,
@@ -239,6 +286,7 @@ function regenerate(state: {
       pinnedTasks: pinned,
       usedMinutesByDate,
       loadFactor,
+      studyTopicFilter,
       fromDate: today,
     })) {
       tasks[task.id] = task;
@@ -318,6 +366,91 @@ export const useAppStore = create<AppState>()(
             }),
           };
         }),
+
+      setPlanState: (topicId, planState) => {
+        set((state) => ({
+          topics: withTopic(state.topics, topicId, (current) => ({
+            ...current,
+            planState,
+          })),
+        }));
+        get().regeneratePlan();
+      },
+
+      setPlanStateForSubtree: (nodeId, planState) => {
+        set((state) => {
+          let topics = state.topics;
+          for (const leafId of getLeafIds(nodeId)) {
+            topics = withTopic(topics, leafId, (current) => ({
+              ...current,
+              planState,
+            }));
+          }
+          return { topics };
+        });
+        get().regeneratePlan();
+      },
+
+      setFocusCollection: (collectionId) => {
+        set({ focusCollectionId: collectionId });
+        get().regeneratePlan();
+      },
+
+      planTopicNow: (topicId, when) => {
+        const state = get();
+        if (!state.planner || !getNode(topicId)) return;
+        const settings = withPlannerDefaults(state.planner);
+        const today = todayStr();
+
+        let date = when === "tomorrow" ? addDays(today, 1) : today;
+        if (when === "this-week") {
+          // The most-free schedulable day in the coming week.
+          let bestFree = Number.NEGATIVE_INFINITY;
+          for (let offset = 0; offset < 7; offset++) {
+            const candidate = addDays(today, offset);
+            const capacity = dayCapacity(candidate, settings).capacityMinutes;
+            if (capacity <= 0) continue;
+            const used = Object.values(state.tasks)
+              .filter(
+                (task) =>
+                  task.date === candidate &&
+                  (task.status === "pending" || task.status === "completed"),
+              )
+              .reduce((sum, task) => sum + task.minutes, 0);
+            if (capacity - used > bestFree) {
+              bestFree = capacity - used;
+              date = candidate;
+            }
+          }
+        }
+
+        const topic = getTopicState(state.topics, topicId);
+        const remaining = remainingStudyMinutes(topicId, topic);
+        const minutes = Math.max(
+          PLANNER_CONFIG.minTaskMinutes,
+          Math.min(
+            settings.sessionMinutes,
+            remaining > 0 ? remaining : settings.sessionMinutes,
+          ),
+        );
+        const sessionsThatDay = Object.values(state.tasks).filter(
+          (task) => task.date === date && task.status === "pending",
+        ).length;
+        const task: PlannedTask = {
+          id: makeId("t"),
+          topicId,
+          date,
+          slot: slotForSession(sessionsThatDay, settings.maxSessionsPerDay),
+          minutes,
+          kind: "study",
+          status: "pending",
+          completedAt: null,
+          createdBy: "user",
+        };
+        set((current) => ({ tasks: { ...current.tasks, [task.id]: task } }));
+        // Rebalance the auto plan around the pinned session.
+        get().regeneratePlan();
+      },
 
       setTopicMeta: (topicId, meta) =>
         set((state) => ({
@@ -585,6 +718,7 @@ export const useAppStore = create<AppState>()(
           tasks: data.tasks,
           lastPlannedAt: data.lastPlannedAt,
           snapshots: data.snapshots,
+          focusCollectionId: data.focusCollectionId,
         }),
 
       resetAll: () => set({ ...initialData }),
@@ -619,6 +753,7 @@ export const useAppStore = create<AppState>()(
         tasks: state.tasks,
         lastPlannedAt: state.lastPlannedAt,
         snapshots: state.snapshots,
+        focusCollectionId: state.focusCollectionId,
       }),
     },
   ),
@@ -708,6 +843,7 @@ export function exportStateToJSON(): string {
     tasks: state.tasks,
     lastPlannedAt: state.lastPlannedAt,
     snapshots: state.snapshots,
+    focusCollectionId: state.focusCollectionId,
     knowledge: exportKnowledge(),
   };
   return JSON.stringify(data, null, 2);
@@ -755,6 +891,7 @@ function sanitizeTopics(raw: unknown, fileVersion: number): TopicStateMap {
       completedSessions: count(t.completedSessions),
       missedSessions: count(t.missedSessions),
       postponeCount: count(t.postponeCount),
+      planState: isPlanState(t.planState) ? t.planState : "included",
     };
   }
   return topics;
@@ -934,6 +1071,10 @@ export function parseExportedState(
         ? obj.lastPlannedAt
         : null,
       snapshots: obj.version < 4 ? {} : sanitizeSnapshots(obj.snapshots),
+      focusCollectionId:
+        typeof obj.focusCollectionId === "string"
+          ? obj.focusCollectionId
+          : null,
       knowledge:
         obj.version < 5 || obj.knowledge == null
           ? null

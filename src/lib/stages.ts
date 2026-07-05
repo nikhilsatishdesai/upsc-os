@@ -105,6 +105,33 @@ export function revisionCountForStage(stage: StudyStage): number {
 export type Difficulty = "easy" | "medium" | "hard";
 export type Confidence = 1 | 2 | 3 | 4 | 5;
 
+/**
+ * Study-scope state: whether the planner may touch this topic.
+ * - "included": normal scheduling (the default).
+ * - "paused": temporarily out of the schedule; its workload still counts
+ *   in the forecast because the work hasn't gone away.
+ * - "excluded": invisible to scheduling, revisions, forecast and workload;
+ *   recorded progress is preserved untouched.
+ */
+export type PlanState = "included" | "paused" | "excluded";
+
+export const PLAN_STATES: PlanState[] = ["included", "paused", "excluded"];
+
+export const PLAN_STATE_META: Record<
+  PlanState,
+  { label: string; dot: string }
+> = {
+  included: { label: "Included", dot: "bg-emerald-500" },
+  paused: { label: "Paused", dot: "bg-amber-500" },
+  excluded: { label: "Excluded", dot: "bg-muted-foreground/40" },
+};
+
+export function isPlanState(value: unknown): value is PlanState {
+  return (
+    typeof value === "string" && PLAN_STATES.includes(value as PlanState)
+  );
+}
+
 export const DIFFICULTY_META: Record<Difficulty, { label: string }> = {
   easy: { label: "Easy" },
   medium: { label: "Medium" },
@@ -199,6 +226,8 @@ export type TopicState = {
   missedSessions: number;
   /** Times the user pushed this topic away (skip / miss / move later). */
   postponeCount: number;
+  /** Study-scope state — see PlanState. */
+  planState: PlanState;
 };
 
 export const DEFAULT_TOPIC_STATE: TopicState = {
@@ -214,6 +243,7 @@ export const DEFAULT_TOPIC_STATE: TopicState = {
   completedSessions: 0,
   missedSessions: 0,
   postponeCount: 0,
+  planState: "included",
 };
 
 export type TopicStateMap = Record<string, TopicState>;

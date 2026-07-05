@@ -108,6 +108,9 @@ export function computeForecast(
   for (const node of getAllNodes()) {
     if (!isLeaf(node)) continue;
     const state = getTopicState(topics, node.id);
+    // Excluded topics leave the forecast entirely; paused topics stay —
+    // their work still has to happen eventually.
+    if (state.planState === "excluded") continue;
     if (state.stage === "not-started") {
       studyMinutes += remainingStudyMinutes(node.id, state);
       revisionMinutesLeft += totalRevisions * revisionMinutes(node.id, state);

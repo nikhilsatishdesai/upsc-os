@@ -91,16 +91,21 @@ const defaultContext = (): PriorityContext => ({
  * Every leaf topic that still needs first-reading time, in syllabus order,
  * scored by the dynamic priority engine. `alreadyPlanned` subtracts minutes
  * covered by pinned pending tasks so a replan never double-books a topic.
+ * Only "included" topics enter the pool; `onlyTopics` (a focus collection)
+ * further restricts it when provided.
  */
 export function buildWorkPool(
   topics: TopicStateMap,
   alreadyPlanned: Map<string, number> = new Map(),
   ctx: PriorityContext = defaultContext(),
+  onlyTopics: Set<string> | null = null,
 ): WorkItem[] {
   const pool: WorkItem[] = [];
   for (const node of getAllNodes()) {
     if (!isLeaf(node)) continue;
+    if (onlyTopics !== null && !onlyTopics.has(node.id)) continue;
     const state = getTopicState(topics, node.id);
+    if (state.planState !== "included") continue;
     const remaining =
       remainingStudyMinutes(node.id, state) -
       (alreadyPlanned.get(node.id) ?? 0);
@@ -137,6 +142,8 @@ export function buildRevisionQueue(
   for (const topicId of Object.keys(topics)) {
     if (excludeTopics.has(topicId)) continue;
     const state = getTopicState(topics, topicId);
+    // Paused/excluded topics defer their revisions until resumed.
+    if (state.planState !== "included") continue;
     if (!needsRevisions(state, totalRevisions)) continue;
     if (!state.nextRevisionAt || state.nextRevisionAt > byDate) continue;
     const intel = resolveTopicIntel(topicId, state);

@@ -9,6 +9,8 @@ import {
   useAppStore,
   type ExportedState,
 } from "@/store/app-store";
+import { useKnowledgeStore } from "@/store/knowledge-store";
+import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -21,8 +23,11 @@ import {
 } from "@/components/ui/dialog";
 
 export function DataSettings() {
+  const mounted = useMounted();
   const importState = useAppStore((state) => state.importState);
   const resetAll = useAppStore((state) => state.resetAll);
+  const importKnowledge = useKnowledgeStore((state) => state.importKnowledge);
+  const resetKnowledge = useKnowledgeStore((state) => state.resetKnowledge);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = React.useState<ExportedState | null>(null);
@@ -96,6 +101,7 @@ export function DataSettings() {
             {importError}
           </p>
         )}
+        {mounted && <StorageUsage />}
       </CardContent>
 
       <Dialog
@@ -126,7 +132,12 @@ export function DataSettings() {
             </Button>
             <Button
               onClick={() => {
-                if (pendingImport) importState(pendingImport);
+                if (pendingImport) {
+                  importState(pendingImport);
+                  if (pendingImport.knowledge) {
+                    importKnowledge(pendingImport.knowledge);
+                  }
+                }
                 setPendingImport(null);
               }}
             >
@@ -153,6 +164,7 @@ export function DataSettings() {
               variant="destructive"
               onClick={() => {
                 resetAll();
+                resetKnowledge();
                 setConfirmReset(false);
               }}
             >
@@ -162,5 +174,22 @@ export function DataSettings() {
         </DialogContent>
       </Dialog>
     </Card>
+  );
+}
+
+/** Approximate localStorage footprint of both stores.
+ * Only rendered after mount, so reading localStorage here is safe. */
+function StorageUsage() {
+  const bytes =
+    (localStorage.getItem("upsc-os-store")?.length ?? 0) +
+    (localStorage.getItem("upsc-os-knowledge")?.length ?? 0);
+  const kb = bytes / 1024;
+  const usage =
+    kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.round(kb)} KB`;
+
+  return (
+    <p className="text-xs text-muted-foreground">
+      Local storage used: {usage} of roughly 5 MB available in the browser.
+    </p>
   );
 }

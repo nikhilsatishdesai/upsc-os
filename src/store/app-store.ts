@@ -38,8 +38,15 @@ import type {
   PlannerSettings,
   TaskSlot,
 } from "@/lib/planner/types";
+import {
+  exportKnowledge,
+  sanitizeKnowledgeExport,
+  type KnowledgeExport,
+} from "@/store/knowledge-store";
 
 export const STORE_VERSION = 4;
+/** Backup-file format version (5 added the knowledge section). */
+export const BACKUP_VERSION = 5;
 const MAX_RECENT = 8;
 
 type AppState = {
@@ -97,6 +104,8 @@ export type ExportedState = {
   tasks: Record<string, PlannedTask>;
   lastPlannedAt: string | null;
   snapshots: Record<string, DailySnapshot>;
+  /** Knowledge OS data (notes, cards, PYQs…); null in pre-v5 backups. */
+  knowledge: KnowledgeExport | null;
 };
 
 const initialData = {
@@ -689,7 +698,7 @@ export function exportStateToJSON(): string {
   const state = useAppStore.getState();
   const data: ExportedState = {
     app: "upsc-os",
-    version: STORE_VERSION,
+    version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     topics: state.topics,
     displayName: state.displayName,
@@ -699,6 +708,7 @@ export function exportStateToJSON(): string {
     tasks: state.tasks,
     lastPlannedAt: state.lastPlannedAt,
     snapshots: state.snapshots,
+    knowledge: exportKnowledge(),
   };
   return JSON.stringify(data, null, 2);
 }
@@ -885,7 +895,7 @@ export function parseExportedState(
   if (obj.app !== "upsc-os") {
     return { ok: false, error: "This file is not a UPSC OS backup." };
   }
-  if (typeof obj.version !== "number" || obj.version > STORE_VERSION) {
+  if (typeof obj.version !== "number" || obj.version > BACKUP_VERSION) {
     return {
       ok: false,
       error: "This backup was created by a newer version of UPSC OS.",
@@ -903,7 +913,7 @@ export function parseExportedState(
     ok: true,
     data: {
       app: "upsc-os",
-      version: STORE_VERSION,
+      version: BACKUP_VERSION,
       exportedAt:
         typeof obj.exportedAt === "string"
           ? obj.exportedAt
@@ -924,6 +934,10 @@ export function parseExportedState(
         ? obj.lastPlannedAt
         : null,
       snapshots: obj.version < 4 ? {} : sanitizeSnapshots(obj.snapshots),
+      knowledge:
+        obj.version < 5 || obj.knowledge == null
+          ? null
+          : sanitizeKnowledgeExport(obj.knowledge),
     },
   };
 }

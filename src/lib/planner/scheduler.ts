@@ -1,3 +1,4 @@
+import { makeId } from "@/lib/id";
 import type { TopicStateMap } from "@/lib/stages";
 import { PLANNER_CONFIG, withPlannerDefaults } from "./config";
 import { dayCapacity, slotForSession } from "./capacity";
@@ -117,10 +118,7 @@ function createRotation(pool: WorkItem[]) {
   };
 }
 
-const defaultMakeId = () =>
-  typeof globalThis.crypto?.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+const defaultMakeId = () => makeId("t");
 
 /**
  * Recovery-day logic: the user's weekly off day when set; otherwise a rest

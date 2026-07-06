@@ -54,7 +54,8 @@ V1 foundation → V2 planner → V3 intelligence engine → Phase A adaptive cor
 
 ## Deployment Status
 
-- **Not deployed.** Vercel-ready, no env vars.
+- **Code is on GitHub:** `https://github.com/nikhilsatishdesai/upsc-os` (private, branch `main`, remote `origin`, local and remote in sync). Push with plain `git push` from now on.
+- **Vercel: connected to the GitHub account but the project is NOT yet imported/deployed.** Next session: Vercel → Add New → Project → Import `upsc-os` → Deploy (no settings changes, no env vars). Founder steps in /DEPLOYMENT.md step 4.
 
 ## Environment Facts
 

@@ -2,6 +2,27 @@
 
 All notable changes to UPSC OS are documented here.
 
+## [0.6.0] — Phase C "AI Operating System" (Chanakya) — 2026-07-06 (code complete; deployment pending)
+
+### Added — the intelligence layer
+- **Chanakya** — a new sidebar section and the command centre of UPSC OS: a mentor chat that *acts*, alongside a live rail of study insights, weak topics, burnout alerts, upcoming revisions, planner recommendations, quick actions and recent AI activity. Not a chatbot — another subsystem of the OS.
+- **Unified AI architecture** — one path for every AI feature: UI → AI service layer → provider manager (routing, retry, fallback, caching, rate limiting, budget, usage) → prompt builders → context builder → action layer → Claude / OpenAI / Gemini. UI never touches a provider.
+- **Multi-provider abstraction** — Claude (Anthropic), OpenAI and Gemini behind one neutral interface (raw `fetch`, no vendor SDKs). Switching or adding a provider is a config/one-file change; the UI never knows which vendor answered.
+- **Capability routing** — per-capability provider preference (chat, summary, generation, reasoning, vision) with automatic fallback to the next configured provider on failure or rate-limit; all configurable in Settings.
+- **Context builder** — automatically assembles the student's own material (topic notes, quick notes, keywords, book references, flashcards, PYQs, current affairs, confidence, difficulty, priority, planner state, revision history, study history, forecast, health, burnout) within a token budget. The user never pastes context.
+- **Versioned prompt system** — dedicated, independently tested builders (Mentor, Summary, Explain, Flashcard, Quiz, Mnemonics, Improve/Simplify Notes, Planner, Revision, Analytics, Current Affairs, PYQ; Essay & Interview architected). Prompt versions feed cache keys.
+- **Safe action layer** — the AI proposes typed actions (rebuild plan, plan a topic, move a session, adjust priority/confidence, plan-state, create flashcards/quick notes, bookmark, vacation/weekend/hours); the user confirms; execution goes through the **existing store actions** — no business logic is bypassed. Every decision is remembered.
+- **Conversation memory** — rolling window + running summary per conversation, plus long-term mentor memory (preferences, accepted and rejected suggestions, past advice) so Chanakya feels like a long-term mentor.
+- **Streaming** — responses render token-by-token via a unified SSE reader across all three providers.
+- **Intelligent caching** — content-addressed cache keyed on provider + model + prompt version + request; repeated summaries/quizzes for unchanged material are free; LRU + TTL eviction.
+- **AI cost manager** — tracks provider, requests, estimated tokens, estimated cost, response time, failures and cache hits, with a configurable daily token budget guard.
+- **Embedded AI everywhere** — Knowledge workspace (Summarize, Explain, Improve, Simplify, Mnemonics, Flashcards, Quiz on every topic, saved into the note's AI slots); Dashboard (Daily Briefing); Planner (Ask Chanakya: rebuild schedule, reduce workload, recover a missed week, vacation mode); Analytics (Explain burnout / forecast / readiness).
+- **Third store** — `upsc-os-ai` keeps AI state fully separate from planner state; backup format **v6** embeds the AI section (models, routing, budget, conversations, memory) — **API keys are never exported**.
+
+### Compatibility
+- Fully backward compatible: Phase A/B systems (planner, knowledge, analytics, dashboard, search, settings, backup/import/export, migrations) are untouched. Older backups (v1–v5) import unchanged; v6 adds the AI section. AI degrades gracefully to the existing non-AI behaviour when no provider is configured.
+- 202 tests pass (119 prior + 83 new AI tests); lint clean; isolated production build green (304 static pages); live browser verification completed.
+
 ## [0.5.1] — Study Scope Management — 2026-07-05 (code complete; deployment pending)
 
 ### Added

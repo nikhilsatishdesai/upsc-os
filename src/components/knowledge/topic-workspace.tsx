@@ -16,7 +16,6 @@ import {
 
 import { useKnowledgeStore } from "@/store/knowledge-store";
 import { useMounted } from "@/hooks/use-mounted";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KnowledgeSection } from "@/components/knowledge/knowledge-section";
 import { RichNoteEditor } from "@/components/knowledge/rich-note-editor";
@@ -28,6 +27,7 @@ import { ResourcesSection } from "@/components/knowledge/resources-section";
 import { PyqsSection } from "@/components/knowledge/pyqs-section";
 import { CurrentAffairsSection } from "@/components/knowledge/current-affairs-section";
 import { HistorySection } from "@/components/knowledge/history-section";
+import { AiTopicTools } from "@/components/knowledge/ai-topic-tools";
 
 function countBy<T extends { topicId: string }>(
   map: Record<string, T>,
@@ -146,13 +146,9 @@ export function TopicWorkspace({ topicId }: { topicId: string }) {
         <HistorySection topicId={topicId} />
       </KnowledgeSection>
 
-      <Card className="border-dashed">
-        <CardContent className="flex items-center gap-2.5 py-3.5 text-sm text-muted-foreground">
-          <Sparkles className="h-4 w-4 shrink-0" />
-          AI tools (summaries, quizzes, explanations) arrive in a later phase
-          — this workspace is already wired for them.
-        </CardContent>
-      </Card>
+      <KnowledgeSection title="Ask Chanakya (AI)" icon={Sparkles}>
+        <AiTopicTools topicId={topicId} />
+      </KnowledgeSection>
     </div>
   );
 }

@@ -170,7 +170,7 @@ describe("timeline cap", () => {
   });
 });
 
-describe("backup round-trip (format v5)", () => {
+describe("backup round-trip (current format)", () => {
   beforeEach(() => useKnowledgeStore.getState().resetKnowledge());
 
   it("includes knowledge in exports and restores it on import", () => {
@@ -180,7 +180,7 @@ describe("backup round-trip (format v5)", () => {
     const parsed = parseExportedState(exportStateToJSON());
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    expect(parsed.data.version).toBe(5);
+    expect(parsed.data.version).toBe(6);
     expect(parsed.data.knowledge?.richNotes[TOPIC].markdown).toBe("# My notes");
 
     useKnowledgeStore.getState().resetKnowledge();

@@ -1,11 +1,13 @@
 # UPSC OS
 
-**An intelligent operating system for UPSC aspirants** — plan, study, revise, practice, and (soon) get AI-powered mentorship across the entire Prelims → Mains → Interview journey.
+**An intelligent operating system for UPSC aspirants** — plan, study, revise, practice, and get AI-powered mentorship across the entire Prelims → Mains → Interview journey.
 
-> Phase B (Knowledge OS) — local-first: all your data stays in your browser. No account needed.
+> Phase C (AI Operating System) — local-first: all your data, and your AI API keys, stay in your browser. No account needed.
 
 ## What it does today
 
+- **Chanakya — your AI mentor** — a dedicated command centre that *sees your entire preparation* (syllabus, planner, analytics, notes, revisions, PYQs) with no pasting, explains its reasoning, and — with your confirmation — acts: rebuild the schedule, adjust priorities, plan topics, create flashcards, bookmark, set vacations. Streams replies, remembers past conversations and your accepted/rejected suggestions. Works with Claude, OpenAI or Gemini (your key, switchable in Settings); the app never couples to one vendor. AI is optional — everything degrades gracefully without a key.
+- **AI woven through the app** — summarize/explain/improve/simplify notes, generate flashcards & quizzes and mnemonics on any topic; a daily briefing on the dashboard; "Ask Chanakya" on the planner; plain-language explanations of burnout, forecast and readiness in Analytics
 - **Topic workspaces** — every syllabus topic is a complete knowledge base: rich markdown notes (tables, checklists, callouts, code), quick notes & mnemonics, flashcards with review mode, keywords, book references, resources, previous-year questions, current-affairs links, bookmarks, and a full study timeline
 - **Knowledge search** — Ctrl+K fuzzy-searches everything you've ever written or saved, with type filters
 - **Study scope control** — include, pause or exclude any paper, unit or topic; focus the planner on a collection (Weak Topics, Prelims Revision…); manually plan any topic for today, tomorrow or this week

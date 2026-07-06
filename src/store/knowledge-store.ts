@@ -47,6 +47,13 @@ export type KnowledgeExport = {
 
 type KnowledgeState = KnowledgeExport & {
   saveRichNote: (topicId: string, markdown: string) => void;
+  /** Persist AI output into a note's `ai` placeholders (Phase C). Creates
+   * an empty note if none exists so cached AI artefacts survive reloads.
+   * Additive and user-clearable; never touches the note's own markdown. */
+  setNoteAi: (
+    topicId: string,
+    patch: Partial<import("@/lib/knowledge/types").NoteAiPlaceholder>,
+  ) => void;
   addQuickNote: (topicId: string, text: string, kind: QuickNoteKind) => void;
   removeQuickNote: (id: string) => void;
   addFlashcard: (
@@ -244,6 +251,26 @@ export const useKnowledgeStore = create<KnowledgeState>()(
             events: newVersion
               ? withEvent(state.events, topicId, "note-updated", "Updated notes")
               : state.events,
+          };
+        }),
+
+      setNoteAi: (topicId, patch) =>
+        set((state) => {
+          const now = nowIso();
+          const existing = state.richNotes[topicId];
+          const base: RichNote = existing ?? {
+            topicId,
+            markdown: "",
+            createdAt: now,
+            updatedAt: now,
+            versionTimestamps: [],
+            ai: EMPTY_NOTE_AI,
+          };
+          return {
+            richNotes: {
+              ...state.richNotes,
+              [topicId]: { ...base, ai: { ...base.ai, ...patch } },
+            },
           };
         }),
 

@@ -10,6 +10,7 @@ import {
   type ExportedState,
 } from "@/store/app-store";
 import { useKnowledgeStore } from "@/store/knowledge-store";
+import { useAiStore } from "@/store/ai-store";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,8 @@ export function DataSettings() {
   const resetAll = useAppStore((state) => state.resetAll);
   const importKnowledge = useKnowledgeStore((state) => state.importKnowledge);
   const resetKnowledge = useKnowledgeStore((state) => state.resetKnowledge);
+  const importAi = useAiStore((state) => state.importAi);
+  const resetAi = useAiStore((state) => state.resetAi);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = React.useState<ExportedState | null>(null);
@@ -137,6 +140,9 @@ export function DataSettings() {
                   if (pendingImport.knowledge) {
                     importKnowledge(pendingImport.knowledge);
                   }
+                  if (pendingImport.ai) {
+                    importAi(pendingImport.ai);
+                  }
                 }
                 setPendingImport(null);
               }}
@@ -165,6 +171,7 @@ export function DataSettings() {
               onClick={() => {
                 resetAll();
                 resetKnowledge();
+                resetAi();
                 setConfirmReset(false);
               }}
             >
@@ -182,7 +189,8 @@ export function DataSettings() {
 function StorageUsage() {
   const bytes =
     (localStorage.getItem("upsc-os-store")?.length ?? 0) +
-    (localStorage.getItem("upsc-os-knowledge")?.length ?? 0);
+    (localStorage.getItem("upsc-os-knowledge")?.length ?? 0) +
+    (localStorage.getItem("upsc-os-ai")?.length ?? 0);
   const kb = bytes / 1024;
   const usage =
     kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.round(kb)} KB`;

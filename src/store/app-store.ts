@@ -48,10 +48,17 @@ import {
   useKnowledgeStore,
   type KnowledgeExport,
 } from "@/store/knowledge-store";
+import {
+  exportAi,
+  sanitizeAiExport,
+  type AiExport,
+} from "@/store/ai-store";
 
 export const STORE_VERSION = 4;
-/** Backup-file format version (5 added the knowledge section). */
-export const BACKUP_VERSION = 5;
+/** Backup-file format version (5 added the knowledge section; 6 added the
+ * AI section — provider models, routing, budget, conversations, memory;
+ * API keys are NEVER included in backups). */
+export const BACKUP_VERSION = 6;
 const MAX_RECENT = 8;
 
 type AppState = {
@@ -97,6 +104,10 @@ type AppState = {
   touchRecent: (topicId: string) => void;
 
   configurePlanner: (prelimsDate: string, settings: PlannerSettings) => void;
+  /** Merge a partial change into the planner settings and replan. Used by
+   * the AI action layer (vacation mode, workload changes) — no-op until
+   * the planner has been set up. */
+  patchPlanner: (patch: Partial<PlannerSettings>) => void;
   regeneratePlan: () => void;
   completeTask: (taskId: string) => void;
   skipTask: (taskId: string) => void;
@@ -124,6 +135,9 @@ export type ExportedState = {
   focusCollectionId: string | null;
   /** Knowledge OS data (notes, cards, PYQs…); null in pre-v5 backups. */
   knowledge: KnowledgeExport | null;
+  /** AI subsystem config + conversations + memory; null in pre-v6
+   * backups. API keys are never serialized here. */
+  ai: AiExport | null;
 };
 
 const initialData = {
@@ -473,6 +487,13 @@ export const useAppStore = create<AppState>()(
 
       configurePlanner: (prelimsDate, settings) => {
         set({ examDate: prelimsDate, planner: settings });
+        get().regeneratePlan();
+      },
+
+      patchPlanner: (patch) => {
+        const current = get().planner;
+        if (!current) return;
+        set({ planner: { ...current, ...patch } });
         get().regeneratePlan();
       },
 
@@ -845,6 +866,7 @@ export function exportStateToJSON(): string {
     snapshots: state.snapshots,
     focusCollectionId: state.focusCollectionId,
     knowledge: exportKnowledge(),
+    ai: exportAi(),
   };
   return JSON.stringify(data, null, 2);
 }
@@ -1079,6 +1101,10 @@ export function parseExportedState(
         obj.version < 5 || obj.knowledge == null
           ? null
           : sanitizeKnowledgeExport(obj.knowledge),
+      ai:
+        obj.version < 6 || obj.ai == null
+          ? null
+          : sanitizeAiExport(obj.ai),
     },
   };
 }

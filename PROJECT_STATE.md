@@ -2,11 +2,26 @@
 
 > **Purpose:** If a new Claude session opens, reading this file should allow work to continue immediately.
 > **Full developer/AI documentation lives in [`/docs`](./docs) — start with `docs/MASTER_CONTEXT.md` (project-wide context, hard rules), then `docs/PROJECT_STATUS.md` (metrics, debt, priorities).**
-> **Last updated:** 2026-07-05
+> **Last updated:** 2026-07-06
 
 ## Current Milestone
 
-**Study Scope Management — CODE-COMPLETE** (on top of Phase B "Knowledge OS"). **Still NOT deployed** — founder must create GitHub + Vercel accounts (DEPLOYMENT.md, click-by-click). This has been the single blocking item since V1; remind the founder every session.
+**Phase C "AI Operating System" (Chanakya) — CODE-COMPLETE** (on top of Study Scope 0.5.1 / Phase B "Knowledge OS"). **Still NOT deployed** — founder must create GitHub + Vercel accounts (DEPLOYMENT.md, click-by-click). This has been the single blocking item since V1; remind the founder every session.
+
+### Phase C (0.6.0) essentials
+- **New AI subsystem `src/lib/ai/`** (pure, testable): `types.ts` (neutral shapes, `AiError`), `config.ts` (providers/models/pricing/routing/budgets — all tunables), `tokens.ts`, `cache.ts` (content-addressed LRU+TTL), `retry.ts` (backoff + fallback classification), `providers/*` (anthropic/openai/gemini adapters via raw `fetch` + shared SSE reader — **no vendor SDKs**), `client.ts` (routing → retry → fallback → cache → budget → usage, streaming + non-streaming), `context.ts` (ContextBuilder over existing engines), `prompts/*` (versioned builders), `actions.ts` (typed proposals → validate → execute via existing store actions), `memory.ts` (conversation window/summary + mentor memory), `structured.ts` (flashcard/quiz JSON parsing), `service.ts` (the AI service layer — one object, every feature).
+- **Third store `upsc-os-ai`** (`src/store/ai-store.ts`, persist v1) — providers (keys stay local), order, per-capability routing, daily budget, usage log, response cache, conversations, mentor memory, activity feed. Keys are **never** exported.
+- **Backup format v6** — app-store embeds `ai` section (models/routing/budget/conversations/memory, **no keys**); accepts v1–v6. `sanitizeAiExport` drops-don't-throws.
+- **Service hook** `src/components/ai/use-ai-service.ts` binds the pure service to the three stores (snapshots read lazily → AI state separate from planner state).
+- **Chanakya workspace** `/chanakya` (route + sidebar entry Dashboard·Planner·Syllabus·**Chanakya**·Settings) — lazy-loaded (`chanakya-loader.tsx` via `next/dynamic`, `ssr:false`) so the AI bundle ships only there (route First Load ≈1.6 kB). Chat (streaming, action proposals, conversation history) + insights rail (weak topics, burnout, revisions, recommendations, quick actions, recent activity). Deep-link `?ask=` auto-sends.
+- **Embedded AI**: topic workspace "Ask Chanakya (AI)" section (`ai-topic-tools.tsx`: summarize/explain/improve/simplify/mnemonics/flashcards/quiz → persisted to `RichNote.ai` via new `knowledge-store.setNoteAi`); dashboard `daily-briefing-card.tsx`; planner `ask-chanakya-menu.tsx` (header dropdown); analytics `ai-analytics-explainers.tsx`; Settings `ai-settings.tsx` (keys/models/routing/budget/usage).
+- **Graceful degradation**: with no provider configured, every surface shows a calm "connect in Settings → AI" prompt; deterministic insights still work.
+
+### Phase C gotchas
+- **Anthropic browser calls** need the `anthropic-dangerous-direct-browser-access: true` header and send **no** `temperature` (current models reject sampling params) — JSON is enforced via a system instruction.
+- **The LLM never writes tasks** — it proposes typed actions; the deterministic engine validates (real leaf ids only) and executes through existing store actions.
+- **Don't feed AI output back as engine input** (mirrors the planner hard rule) — context is built from primary data + engine outputs, never from prior AI replies.
+- The preview sandbox blocks outbound calls to provider APIs, so live end-to-end shows a friendly network error (pipeline itself is verified: message persist → stream → fallback → error mapping).
 
 ### Study Scope (0.5.1) essentials
 - `TopicState.planState`: "included" | "paused" | "excluded" (default-merged — no migration). Semantics: paused = out of schedule but IN forecast; excluded = out of everything, progress preserved.
@@ -24,7 +39,7 @@ Phase B milestones (each one git commit, restorable):
 
 ## Completed Work (cumulative)
 
-V1 foundation → V2 planner → V3 intelligence engine → Phase A adaptive core → **Phase B knowledge workspace**. 110 tests green, lint clean, build = 303 static pages. Live-verified end-to-end: note autosave + preview (callouts/tables/checklists/highlighted code), flashcard review streaks, bookmark collections, multi-entity fuzzy search with filters, dashboard knowledge stats.
+V1 foundation → V2 planner → V3 intelligence engine → Phase A adaptive core → Phase B knowledge workspace → Study Scope → **Phase C AI Operating System (Chanakya)**. 202 tests green (119 prior + 83 AI), lint clean, isolated build = 304 static pages. Live-verified: sidebar Chanakya entry, workspace (both configured/unconfigured states), Settings AI card (providers/routing/budget/usage), topic AI tools (all 7), dashboard Daily Briefing, full request pipeline end-to-end (message persist → streaming → fallback chain → friendly error), no console errors.
 
 ## Current Architecture (knowledge layer)
 
@@ -45,12 +60,13 @@ V1 foundation → V2 planner → V3 intelligence engine → Phase A adaptive cor
 
 ## Remaining Tasks
 
-- **Deploy (V1→Phase B):** founder creates GitHub + Vercel accounts → DEPLOYMENT.md.
-- Future phases per founder's naming: PYQ Intelligence (bulk question bank + weightage analytics on top of the pyq entities), Current Affairs OS, AI Mentor (placeholders already wired), Revision OS, Test Analytics.
+- **Deploy (V1→Phase C):** founder creates GitHub + Vercel accounts → DEPLOYMENT.md. (AI needs no server env vars — keys are entered per-device in Settings → AI.)
+- Future phases per founder's naming: PYQ Intelligence (bulk question bank + weightage analytics; AI PYQ analysis already wired in the service), Current Affairs OS (AI CA explainer already wired in the service), Revision OS (AI revision coach prompt ready), Test Analytics.
+- Phase C future extension points already architected (prompt builders + service exist; UI surfaces are the only remaining work): **Essay Evaluation, Interview Practice**, plus Vision/Image/PDF routing (`vision` capability + Gemini routing in place).
 
 ## Commands Required
 
-- `npm run dev` · `npm test` (119) · `npm run lint` · `npm run build:check` (never plain `build` while dev server runs)
+- `npm run dev` · `npm test` (202) · `npm run lint` · `npm run build:check` (never plain `build` while dev server runs)
 
 ## Deployment Status
 
@@ -64,4 +80,4 @@ V1 foundation → V2 planner → V3 intelligence engine → Phase A adaptive cor
 
 ## Next Recommended Step
 
-Deploy, then choose the next module (PYQ Intelligence pairs naturally with the new pyq entities). Tune knowledge behavior in `src/lib/knowledge/config.ts`.
+Deploy. Then, to use Chanakya: Settings → AI → paste an API key for Claude, OpenAI or Gemini (any one is enough). Tune AI behaviour in `src/lib/ai/config.ts` (routing, budgets, models, cache) and prompts in `src/lib/ai/prompts/*` (versioned). Next module options: PYQ Intelligence or surface the ready-made Essay/Interview AI features.

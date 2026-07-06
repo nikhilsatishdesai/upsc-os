@@ -33,6 +33,7 @@ import { useAppStore } from "@/store/app-store";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SubtreeProgress } from "@/components/syllabus/subtree-progress";
+import { AiAnalyticsExplainers } from "@/components/planner/ai-analytics-explainers";
 import { cn } from "@/lib/utils";
 
 function hours(minutes: number): string {
@@ -96,6 +97,7 @@ export function AnalyticsView({ settings }: { settings: PlannerSettings }) {
 
   return (
     <div className="space-y-4">
+      <AiAnalyticsExplainers />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="This week"

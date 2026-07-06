@@ -66,6 +66,7 @@ English with click-by-click instructions.
 | Phase A Intelligence Core | 0.4.0 | Dynamic priority scoring, confidence decay, behaviour counters, continuity scheduling, scheduler v3 (maxHard/day, weekend strategy, vacations, aggressiveness, damping), forecast v2 (probabilities, observed pace, CI), recommendation engine, study health score, snapshots, explainability |
 | Phase B Knowledge OS | 0.5.0 | Second store, topic workspaces (rich notes, quick notes, flashcards + review mode, keywords, books, resources, PYQs, current affairs, bookmarks/collections, history & timeline), knowledge search, knowledge dashboard card, backup v5 |
 | Study Scope | 0.5.1 | planState include/pause/exclude, Scope planner tab, focus collections, manual planning (Plan menu) |
+| Phase C AI OS (Chanakya) | 0.6.0 | Third store (`upsc-os-ai`); unified AI layer (`src/lib/ai/*`): multi-provider abstraction (Claude/OpenAI/Gemini via raw fetch), capability routing + fallback, retry, content-addressed cache, budget guard + usage tracker, streaming; ContextBuilder, versioned PromptBuilders, safe action layer (proposes → user confirms → existing store actions); conversation + mentor memory; Chanakya workspace (`/chanakya`, lazy-loaded); embedded AI (topic tools, daily briefing, planner Ask-Chanakya, analytics explainers); Settings AI card; backup v6 (keys never exported). Degrades gracefully with no provider. |
 
 ## 5. Pending phases (agreed with founder, NOT started)
 
@@ -75,9 +76,10 @@ English with click-by-click instructions.
 2. **PYQ Intelligence** — bulk question bank + weightage analytics on top of the
    existing `pyqs` entities.
 3. **Current Affairs OS** — feeds/digests on top of `currentAffairs` entities.
-4. **Phase C: AI** — see `docs/PHASE_C_SPEC.md` + `docs/API_ABSTRACTION.md`.
-   Placeholders already exist in the data model (never populate them without
-   this phase).
+4. ~~**Phase C: AI**~~ — **SHIPPED (0.6.0)**; see `docs/PHASE_C_SPEC.md` +
+   `docs/API_ABSTRACTION.md` for the design it was built against. The AI
+   layer lives in `src/lib/ai/*` behind `AiClient`/`AiService`; only that
+   layer writes the data-model AI placeholders.
 5. **Revision OS** — SRS for flashcards (metadata ready: streaks, `ai` slot).
 6. **Bridge** — accounts, Supabase, cloud sync, IndexedDB migration.
 7. **Test analytics / mocks, essay/answer evaluation, interview prep** — later.
@@ -114,21 +116,24 @@ src/
 
 ## 7. Storage model (critical)
 
-Two independent zustand-persist stores in localStorage:
+Three independent zustand-persist stores in localStorage:
 
 | Key | Version | Contents |
 |---|---|---|
 | `upsc-os-store` | 4 | topics (TopicState map), displayName, examDate (= Prelims date), recentTopics, planner (PlannerSettings), tasks (PlannedTask map), lastPlannedAt, snapshots (daily), focusCollectionId |
 | `upsc-os-knowledge` | 1 | richNotes, quickNotes, flashcards, keywords, bookRefs, resources, pyqs, currentAffairs, bookmarks, collections, events (timeline, capped 1500) |
+| `upsc-os-ai` | 1 | providers (keys+models — device-only), order, per-capability routing, dailyBudgetTokens, usage log, response cache (LRU+TTL), conversations, mentor memory, activity feed. Keeps AI state separate from planner state (perf). |
 
 - **Migration chain** in `app-store.ts` `migrate`: v1→v2→v3→v4. Never remove old
   steps. New TopicState fields need NO migration: `getTopicState` merges
   `DEFAULT_TOPIC_STATE` over stored objects (WeakMap-cached for referential
   stability — see §12.1).
-- **Backups**: one JSON file, format version **5** (`BACKUP_VERSION`), contains
-  the app store plus a `knowledge` section. `parseExportedState` accepts ALL
-  older versions and sanitizes every field (drop-don't-throw). Both stores
-  reset/import together via Settings → Data.
+- **Backups**: one JSON file, format version **6** (`BACKUP_VERSION`), contains
+  the app store plus a `knowledge` section and an `ai` section (models,
+  routing, budget, conversations, memory — **API keys never exported**).
+  `parseExportedState` accepts ALL older versions (v1–v6) and sanitizes every
+  field (drop-don't-throw). All three stores reset/import together via
+  Settings → Data.
 - localStorage budget ≈ 5 MB; usage meter in Settings. Images in notes are
   URL-references only. IndexedDB is the planned escape hatch (Bridge phase).
 
@@ -246,8 +251,12 @@ app-store may read knowledge-store). Engine modules never import stores.
 8. Completed tasks never move or mutate; missed tasks are history, not deletions.
 9. Topic ids are permanent identifiers. Never rename syllabus node ids —
    progress and knowledge key off them. Adding topics is fine.
-10. AI placeholder fields stay `null` until Phase C ships behind the
-    abstraction layer (docs/API_ABSTRACTION.md).
+10. AI placeholder fields (`RichNote.ai.*`, `Pyq.aiExplanation`,
+    `CurrentAffair.aiSummary`, `Flashcard.ai`) are written ONLY by the AI
+    layer (`src/lib/ai/*`), never by UI components or the planner/knowledge
+    engines. No vendor SDK is imported outside `src/lib/ai/providers/*`. The
+    LLM never mutates state directly — it proposes typed actions that the
+    action layer validates and executes through existing store actions.
 
 ## 13. Known extension points (designed-in, safe to build on)
 

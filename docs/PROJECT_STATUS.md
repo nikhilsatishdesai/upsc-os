@@ -15,9 +15,9 @@ milestone, but zero production exposure and known accepted debt below.
 |---|---|
 | Source files (TS/TSX) | 118 (incl. 12 test files) |
 | Lines of code | ~16,500 (components 7,290 · lib 5,272 · store 2,604 · data 874 · app 438 · hooks 18) |
-| Tests | 119 passing, 12 suites |
+| Tests | 202 passing, 23 suites (119 prior + 83 AI) |
 | Git commits (milestones) | 30 |
-| Persisted stores | 2 (`upsc-os-store` v4, `upsc-os-knowledge` v1) + backup format v5 |
+| Persisted stores | 3 (`upsc-os-store` v4, `upsc-os-knowledge` v1, `upsc-os-ai` v1) + backup format v6 |
 | Routes/pages | 6 routes → 303 statically generated pages |
 | Reusable UI primitives | 14 (`components/ui`) |
 | Feature components | 49 |
@@ -43,14 +43,18 @@ scoped so far: ~95% (deployment is the missing 5%).
 ## Pending systems (in suggested priority order)
 
 1. **DEPLOYMENT** — highest priority, ~1 hour of work, blocked ONLY on the
-   founder creating GitHub + Vercel accounts. Everything is ready.
-2. PYQ Intelligence (bulk bank + weightage analytics) — builds on `pyqs`.
-3. Phase C: AI (see PHASE_C_SPEC.md; ~15 features; build the abstraction layer
-   first per API_ABSTRACTION.md).
-4. Revision OS — SRS for flashcards (metadata already present).
-5. Current Affairs OS — feeds/digests on `currentAffairs`.
+   founder creating GitHub + Vercel accounts. Everything is ready. (Phase C
+   AI needs no server env vars — keys are per-device in Settings → AI.)
+2. ~~Phase C: AI~~ — **SHIPPED (0.6.0)**: unified AI layer, Chanakya
+   workspace, embedded AI, provider abstraction, context/prompt/action
+   layers, streaming, caching, cost manager. Essay/Interview builders exist
+   in the service; only their UI surfaces remain.
+3. PYQ Intelligence (bulk bank + weightage analytics) — builds on `pyqs`;
+   AI PYQ analysis already wired in the service.
+4. Revision OS — SRS for flashcards (metadata present; AI revision coach ready).
+5. Current Affairs OS — feeds/digests on `currentAffairs`; AI CA explainer wired.
 6. Bridge — IndexedDB, then Supabase auth + sync (DATABASE_EVOLUTION.md).
-7. Mocks / answer & essay evaluation / interview (mostly Phase-C dependent).
+7. Mocks / answer & essay evaluation / interview UI (Phase-C service exists).
 
 ## Technical debt (accepted, documented)
 

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SetupWizard } from "@/components/planner/setup-wizard";
 import { PlannerSettingsDialog } from "@/components/planner/settings-dialog";
+import { AskChanakyaMenu } from "@/components/planner/ask-chanakya-menu";
 import { TodayView } from "@/components/planner/today-view";
 import { WeekView } from "@/components/planner/week-view";
 import { AnalyticsView } from "@/components/planner/analytics-view";
@@ -91,6 +92,7 @@ export function PlannerView() {
           <Button variant="outline" size="sm" onClick={() => regeneratePlan()}>
             <RefreshCw /> Replan
           </Button>
+          <AskChanakyaMenu />
           <PlannerSettingsDialog />
         </div>
       </div>

@@ -38,14 +38,15 @@ function adapter(
       onDelta("ok");
       return okResponse(id);
     }),
+    ...(impl.listModels ? { listModels: impl.listModels } : {}),
   };
 }
 
 function baseConfig(overrides: Partial<AiClientConfig> = {}): AiClientConfig {
   return {
     providers: {
-      anthropic: { apiKey: "a", model: "" },
-      openai: { apiKey: "o", model: "" },
+      anthropic: { apiKey: "a", selectedModel: "" },
+      openai: { apiKey: "o", selectedModel: "" },
     },
     order: ["anthropic", "openai"],
     routing: {},
@@ -81,11 +82,67 @@ describe("routing", () => {
 
   it("reports configured providers and skips keyless ones", () => {
     const client = makeClient(
-      baseConfig({ providers: { anthropic: { apiKey: "a", model: "" } } }),
+      baseConfig({ providers: { anthropic: { apiKey: "a", selectedModel: "" } } }),
       {},
     );
     expect(client.configuredProviders()).toEqual(["anthropic"]);
     expect(client.isConfigured()).toBe(true);
+  });
+
+  it("sends the user's exact model id — including a future one — verbatim", () => {
+    const client = makeClient(
+      baseConfig({
+        providers: {
+          anthropic: { apiKey: "a", selectedModel: "claude-sonnet-6" },
+        },
+        order: ["anthropic"],
+      }),
+      {},
+    );
+    expect(client.resolveChain("chat")[0].model).toBe("claude-sonnet-6");
+  });
+
+  it("falls back to the provider seed model only when none is chosen", () => {
+    const client = makeClient(
+      baseConfig({
+        providers: { anthropic: { apiKey: "a", selectedModel: "  " } },
+        order: ["anthropic"],
+      }),
+      {},
+    );
+    // Blank ⇒ the single seed (not a hardcoded list) so a fresh key works.
+    expect(client.resolveChain("chat")[0].model).not.toBe("");
+  });
+});
+
+describe("listModels (refresh)", () => {
+  it("fetches with the configured key and sorts the result", async () => {
+    const client = makeClient(
+      baseConfig({
+        providers: { openai: { apiKey: "o", selectedModel: "gpt-6" } },
+        order: ["openai"],
+      }),
+      {
+        openai: adapter("openai", {
+          listModels: async () => [
+            { id: "gpt-9", label: "gpt-9" },
+            { id: "gpt-4", label: "gpt-4" },
+          ],
+        }),
+      },
+    );
+    const models = await client.listModels("openai");
+    expect(models.map((m) => m.id)).toEqual(["gpt-4", "gpt-9"]); // sorted
+  });
+
+  it("rejects when the provider has no key", async () => {
+    const client = makeClient(
+      baseConfig({ providers: {}, order: [] }),
+      {},
+    );
+    await expect(client.listModels("openai")).rejects.toMatchObject({
+      kind: "not-configured",
+    });
   });
 });
 
@@ -159,7 +216,7 @@ describe("caching", () => {
     const store: AiCacheMap = {};
     // Config pins an explicit model so the client's key is predictable.
     const config = baseConfig({
-      providers: { anthropic: { apiKey: "a", model: "anthropic-model" } },
+      providers: { anthropic: { apiKey: "a", selectedModel: "anthropic-model" } },
       order: ["anthropic"],
     });
     const key = cacheKey("anthropic", "anthropic-model", "v1", request);
@@ -256,7 +313,7 @@ describe("streaming", () => {
 
   it("reports errors through onError", async () => {
     const client = makeClient(
-      baseConfig({ providers: { anthropic: { apiKey: "a", model: "" } }, order: ["anthropic"] }),
+      baseConfig({ providers: { anthropic: { apiKey: "a", selectedModel: "" } }, order: ["anthropic"] }),
       {
         anthropic: adapter("anthropic", {
           stream: async () => {

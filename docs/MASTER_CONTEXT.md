@@ -67,6 +67,7 @@ English with click-by-click instructions.
 | Phase B Knowledge OS | 0.5.0 | Second store, topic workspaces (rich notes, quick notes, flashcards + review mode, keywords, books, resources, PYQs, current affairs, bookmarks/collections, history & timeline), knowledge search, knowledge dashboard card, backup v5 |
 | Study Scope | 0.5.1 | planState include/pause/exclude, Scope planner tab, focus collections, manual planning (Plan menu) |
 | Phase C AI OS (Chanakya) | 0.6.0 | Third store (`upsc-os-ai`); unified AI layer (`src/lib/ai/*`): multi-provider abstraction (Claude/OpenAI/Gemini via raw fetch), capability routing + fallback, retry, content-addressed cache, budget guard + usage tracker, streaming; ContextBuilder, versioned PromptBuilders, safe action layer (proposes → user confirms → existing store actions); conversation + mentor memory; Chanakya workspace (`/chanakya`, lazy-loaded); embedded AI (topic tools, daily briefing, planner Ask-Chanakya, analytics explainers); Settings AI card; backup v6 (keys never exported). Degrades gracefully with no provider. |
+| Phase C.1 model mgmt | 0.6.1 | Provider-/model-agnostic config: no hardcoded model lists anywhere; free-form `selectedModel` per provider; Settings Model-ID text box + Refresh-models picker (per-provider `listModels`, graceful manual fallback); coarse per-provider pricing; ai-store v1→v2 migration; any future model id works with no code change. `docs/AI_ARCHITECTURE.md`. |
 
 ## 5. Pending phases (agreed with founder, NOT started)
 
@@ -122,17 +123,19 @@ Three independent zustand-persist stores in localStorage:
 |---|---|---|
 | `upsc-os-store` | 4 | topics (TopicState map), displayName, examDate (= Prelims date), recentTopics, planner (PlannerSettings), tasks (PlannedTask map), lastPlannedAt, snapshots (daily), focusCollectionId |
 | `upsc-os-knowledge` | 1 | richNotes, quickNotes, flashcards, keywords, bookRefs, resources, pyqs, currentAffairs, bookmarks, collections, events (timeline, capped 1500) |
-| `upsc-os-ai` | 1 | providers (keys+models — device-only), order, per-capability routing, dailyBudgetTokens, usage log, response cache (LRU+TTL), conversations, mentor memory, activity feed. Keeps AI state separate from planner state (perf). |
+| `upsc-os-ai` | 2 | providers `{apiKey, selectedModel (free-form string), lastRefresh?, availableModels?}` — device-only, NO hardcoded model list; order, per-capability routing, dailyBudgetTokens, usage log, response cache (LRU+TTL), conversations, mentor memory, activity feed. Keeps AI state separate from planner state (perf). Migrate v1→v2 renamed `model`→`selectedModel`. See `docs/AI_ARCHITECTURE.md`. |
 
 - **Migration chain** in `app-store.ts` `migrate`: v1→v2→v3→v4. Never remove old
   steps. New TopicState fields need NO migration: `getTopicState` merges
   `DEFAULT_TOPIC_STATE` over stored objects (WeakMap-cached for referential
   stability — see §12.1).
 - **Backups**: one JSON file, format version **6** (`BACKUP_VERSION`), contains
-  the app store plus a `knowledge` section and an `ai` section (models,
-  routing, budget, conversations, memory — **API keys never exported**).
-  `parseExportedState` accepts ALL older versions (v1–v6) and sanitizes every
-  field (drop-don't-throw). All three stores reset/import together via
+  the app store plus a `knowledge` section and an `ai` section
+  (`selectedModel` per provider, routing, budget, conversations, memory —
+  **API keys never exported**). `parseExportedState` accepts ALL older
+  versions (v1–v6) and sanitizes every field (drop-don't-throw); the AI
+  sanitizer reads `selectedModel` and falls back to the legacy `model` key,
+  and keeps NO model whitelist. All three stores reset/import together via
   Settings → Data.
 - localStorage budget ≈ 5 MB; usage meter in Settings. Images in notes are
   URL-references only. IndexedDB is the planned escape hatch (Bridge phase).

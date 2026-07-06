@@ -9,22 +9,29 @@ import type {
  * (same rule as PLANNER_CONFIG / KNOWLEDGE_CONFIG).
  */
 
-export type AiModelInfo = {
-  id: string;
-  label: string;
-  /** Approximate context window in tokens (informational). */
-  contextWindow: number;
-  /** Estimated USD per million input / output tokens (cost manager only —
-   * real invoices come from the vendor; keep these roughly current). */
-  inputUsdPerMTok: number;
-  outputUsdPerMTok: number;
-};
-
+/**
+ * Provider metadata — deliberately model-AGNOSTIC. There is NO hardcoded
+ * list of model names anywhere: the user types (or refreshes) a model id
+ * and it is sent as-is, so any future model works without a code change.
+ *
+ * `fallbackModel` is a single, overridable seed used only when a provider
+ * has a key but no model chosen yet (and to pre-fill the input for a fresh
+ * provider). It is NOT a whitelist and is never used to validate or block
+ * a user's model id.
+ *
+ * `pricing` is a coarse per-provider estimate for the cost manager only —
+ * real invoices come from the vendor; it never gates functionality.
+ */
 export type AiProviderInfo = {
   id: AiProviderId;
   label: string;
-  defaultModel: string;
-  models: AiModelInfo[];
+  /** Single overridable seed model id (fresh-provider default only). */
+  fallbackModel: string;
+  /** Coarse USD per million input / output tokens (estimate only). */
+  pricing: { inputUsdPerMTok: number; outputUsdPerMTok: number };
+  /** Whether this provider exposes a list-models endpoint (drives the
+   * "Refresh models" button; false ⇒ manual entry only, no error). */
+  listModelsSupported: boolean;
   /** Correction factor on the chars/4 token heuristic. */
   tokenFactor: number;
   /** Client-side request budget per minute (polite rate limiting). */
@@ -35,92 +42,45 @@ export const AI_PROVIDERS: Record<AiProviderId, AiProviderInfo> = {
   anthropic: {
     id: "anthropic",
     label: "Claude (Anthropic)",
-    defaultModel: "claude-opus-4-8",
-    models: [
-      {
-        id: "claude-opus-4-8",
-        label: "Claude Opus 4.8",
-        contextWindow: 1_000_000,
-        inputUsdPerMTok: 5,
-        outputUsdPerMTok: 25,
-      },
-      {
-        id: "claude-sonnet-5",
-        label: "Claude Sonnet 5",
-        contextWindow: 1_000_000,
-        inputUsdPerMTok: 3,
-        outputUsdPerMTok: 15,
-      },
-      {
-        id: "claude-haiku-4-5",
-        label: "Claude Haiku 4.5",
-        contextWindow: 200_000,
-        inputUsdPerMTok: 1,
-        outputUsdPerMTok: 5,
-      },
-    ],
+    fallbackModel: "claude-sonnet-5",
+    pricing: { inputUsdPerMTok: 3, outputUsdPerMTok: 15 },
+    listModelsSupported: true,
     tokenFactor: 1,
     requestsPerMinute: 30,
   },
   openai: {
     id: "openai",
     label: "OpenAI",
-    defaultModel: "gpt-4.1-mini",
-    models: [
-      {
-        id: "gpt-4.1",
-        label: "GPT-4.1",
-        contextWindow: 1_000_000,
-        inputUsdPerMTok: 2,
-        outputUsdPerMTok: 8,
-      },
-      {
-        id: "gpt-4.1-mini",
-        label: "GPT-4.1 mini",
-        contextWindow: 1_000_000,
-        inputUsdPerMTok: 0.4,
-        outputUsdPerMTok: 1.6,
-      },
-    ],
+    fallbackModel: "gpt-4.1-mini",
+    pricing: { inputUsdPerMTok: 1, outputUsdPerMTok: 4 },
+    listModelsSupported: true,
     tokenFactor: 1,
     requestsPerMinute: 30,
   },
   gemini: {
     id: "gemini",
     label: "Gemini (Google)",
-    defaultModel: "gemini-2.5-flash",
-    models: [
-      {
-        id: "gemini-2.5-pro",
-        label: "Gemini 2.5 Pro",
-        contextWindow: 1_000_000,
-        inputUsdPerMTok: 1.25,
-        outputUsdPerMTok: 10,
-      },
-      {
-        id: "gemini-2.5-flash",
-        label: "Gemini 2.5 Flash",
-        contextWindow: 1_000_000,
-        inputUsdPerMTok: 0.3,
-        outputUsdPerMTok: 2.5,
-      },
-    ],
+    fallbackModel: "gemini-2.5-flash",
+    pricing: { inputUsdPerMTok: 0.5, outputUsdPerMTok: 3 },
+    listModelsSupported: true,
     tokenFactor: 1,
     requestsPerMinute: 30,
   },
 };
 
-/** Resolve the model info (falls back to a provider's default model). */
-export function resolveModelInfo(
-  provider: AiProviderId,
-  modelId: string,
-): AiModelInfo {
-  const info = AI_PROVIDERS[provider];
-  return (
-    info.models.find((model) => model.id === modelId) ??
-    info.models.find((model) => model.id === info.defaultModel) ??
-    info.models[0]
-  );
+/** Coarse cost estimate for a provider (the cost manager is approximate;
+ * per-model pricing is deliberately not tracked so new models need no
+ * code change). */
+export function providerPricing(provider: AiProviderId): {
+  inputUsdPerMTok: number;
+  outputUsdPerMTok: number;
+} {
+  return AI_PROVIDERS[provider].pricing;
+}
+
+/** The seed model to use when a provider has a key but no chosen model. */
+export function fallbackModel(provider: AiProviderId): string {
+  return AI_PROVIDERS[provider].fallbackModel;
 }
 
 export const AI_CONFIG = {

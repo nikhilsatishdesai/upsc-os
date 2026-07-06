@@ -1,4 +1,10 @@
-import { AiError, type AiProviderAdapter, type AiRequest, type AiResponse } from "../types";
+import {
+  AiError,
+  type AiModelListItem,
+  type AiProviderAdapter,
+  type AiRequest,
+  type AiResponse,
+} from "../types";
 import { parseJson, readSseStream, safeFetch } from "./http";
 
 /**
@@ -10,6 +16,7 @@ import { parseJson, readSseStream, safeFetch } from "./http";
  */
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const MODELS_URL = `${API_BASE}?pageSize=1000`;
 
 function url(model: string, stream: boolean): string {
   return stream
@@ -142,5 +149,37 @@ export const geminiAdapter: AiProviderAdapter = {
       provider: "gemini",
       cached: false,
     } satisfies AiResponse;
+  },
+
+  async listModels(settings, fetchImpl, signal) {
+    const response = await safeFetch("gemini", fetchImpl, MODELS_URL, {
+      method: "GET",
+      headers: headers(settings.apiKey),
+      signal,
+    });
+    const data = (await response.json()) as {
+      models?: {
+        name?: string;
+        displayName?: string;
+        supportedGenerationMethods?: string[];
+      }[];
+    };
+    return (data.models ?? [])
+      .filter(
+        (model): model is {
+          name: string;
+          displayName?: string;
+          supportedGenerationMethods?: string[];
+        } =>
+          typeof model.name === "string" &&
+          // Only chat-capable models — the API also lists embedding/vision-
+          // only endpoints that generateContent would reject.
+          (model.supportedGenerationMethods ?? []).includes("generateContent"),
+      )
+      .map<AiModelListItem>((model) => {
+        // Gemini ids come prefixed as "models/gemini-…"; send the bare id.
+        const id = model.name.replace(/^models\//, "");
+        return { id, label: model.displayName ?? id };
+      });
   },
 };

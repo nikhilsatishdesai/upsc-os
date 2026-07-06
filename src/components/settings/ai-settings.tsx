@@ -1,9 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { Check, KeyRound, Sparkles, Trash2 } from "lucide-react";
+import {
+  Check,
+  KeyRound,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 
-import { AI_CAPABILITIES, type AiCapability, type AiProviderId } from "@/lib/ai/types";
+import {
+  AI_CAPABILITIES,
+  type AiCapability,
+  type AiModelListItem,
+  type AiProviderId,
+} from "@/lib/ai/types";
 import { AI_PROVIDERS } from "@/lib/ai/config";
 import {
   summarizeUsage,
@@ -11,6 +23,8 @@ import {
   usedTokensToday,
 } from "@/store/ai-store";
 import { useMounted } from "@/hooks/use-mounted";
+import { useAiService } from "@/components/ai/use-ai-service";
+import { friendlyAiError } from "@/components/ai/ai-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,13 +87,23 @@ export function AiSettings() {
 
 function ProviderRow({ providerId }: { providerId: AiProviderId }) {
   const info = AI_PROVIDERS[providerId];
+  const service = useAiService();
   const stored = useAiStore((state) => state.providers[providerId]);
   const setProvider = useAiStore((state) => state.setProvider);
+  const setProviderModel = useAiStore((state) => state.setProviderModel);
+  const cacheProviderModels = useAiStore((state) => state.cacheProviderModels);
   const removeProvider = useAiStore((state) => state.removeProvider);
 
   const [key, setKey] = React.useState(stored?.apiKey ?? "");
-  const [model, setModel] = React.useState(stored?.model ?? info.defaultModel);
+  // The Model ID text box is the single source of truth for what is sent
+  // to the provider. It's a free-form string — any model id works.
+  const [model, setModel] = React.useState(stored?.selectedModel ?? "");
   const [saved, setSaved] = React.useState(false);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [refreshError, setRefreshError] = React.useState<string | null>(null);
+  // Labelled models from the last successful refresh (this session).
+  const [fetched, setFetched] = React.useState<AiModelListItem[] | null>(null);
+  const [pickerSearch, setPickerSearch] = React.useState("");
 
   // Reflect external changes (import/reset) by syncing the editor when the
   // stored provider identity changes — the render-time reset pattern React
@@ -88,7 +112,8 @@ function ProviderRow({ providerId }: { providerId: AiProviderId }) {
   if (stored !== prevStored) {
     setPrevStored(stored);
     setKey(stored?.apiKey ?? "");
-    setModel(stored?.model ?? info.defaultModel);
+    setModel(stored?.selectedModel ?? "");
+    setFetched(null);
   }
 
   const connected = (stored?.apiKey ?? "") !== "";
@@ -97,10 +122,51 @@ function ProviderRow({ providerId }: { providerId: AiProviderId }) {
     if (key.trim() === "") {
       removeProvider(providerId);
     } else {
-      setProvider(providerId, { apiKey: key.trim(), model });
+      setProvider(providerId, { apiKey: key.trim(), selectedModel: model });
     }
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1500);
+  };
+
+  const refresh = async () => {
+    setRefreshError(null);
+    if (key.trim() === "") {
+      setRefreshError("Enter an API key first.");
+      return;
+    }
+    // Persist the current key + model so the client fetches with them.
+    setProvider(providerId, { apiKey: key.trim(), selectedModel: model });
+    setRefreshing(true);
+    try {
+      const models = await service.listModels(providerId);
+      setFetched(models);
+      cacheProviderModels(
+        providerId,
+        models.map((item) => item.id),
+      );
+      if (models.length === 0) {
+        setRefreshError("The provider returned no models. Type an id manually.");
+      }
+    } catch (caught) {
+      // Graceful fallback to manual entry — no crash, no blocking.
+      setFetched(null);
+      setRefreshError(
+        `${friendlyAiError(caught)} You can still type a model id below.`,
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const pickModel = (id: string) => {
+    setModel(id);
+    setPickerSearch("");
+    setFetched(null);
+    if (connected) {
+      setProviderModel(providerId, id);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 1500);
+    }
   };
 
   return (
@@ -123,6 +189,8 @@ function ProviderRow({ providerId }: { providerId: AiProviderId }) {
           </Badge>
         )}
       </div>
+
+      {/* API key */}
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
         <Input
           type="password"
@@ -132,17 +200,6 @@ function ProviderRow({ providerId }: { providerId: AiProviderId }) {
           onChange={(event) => setKey(event.target.value)}
         />
         <div className="flex gap-2">
-          <NativeSelect
-            value={model}
-            onChange={(event) => setModel(event.target.value)}
-            className="sm:w-44"
-          >
-            {info.models.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </NativeSelect>
           <Button onClick={save} size="sm" className="shrink-0">
             {saved ? <Check /> : null}
             {saved ? "Saved" : "Save"}
@@ -162,7 +219,158 @@ function ProviderRow({ providerId }: { providerId: AiProviderId }) {
           )}
         </div>
       </div>
+
+      {/* Model ID — free-form, provider-agnostic */}
+      <div className="mt-3 space-y-1.5">
+        <label className="text-xs font-medium text-muted-foreground">
+          Model ID
+        </label>
+        <div className="flex gap-2">
+          <Input
+            value={model}
+            spellCheck={false}
+            autoComplete="off"
+            placeholder={`e.g. ${info.fallbackModel}`}
+            onChange={(event) => setModel(event.target.value)}
+            onBlur={() => {
+              // Manual entry persists on blur when already connected.
+              if (connected && model.trim() !== (stored?.selectedModel ?? "")) {
+                setProviderModel(providerId, model.trim());
+              }
+            }}
+          />
+          {info.listModelsSupported && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              disabled={refreshing}
+              onClick={refresh}
+            >
+              <RefreshCw className={refreshing ? "animate-spin" : ""} />
+              {refreshing ? "Refreshing…" : "Refresh models"}
+            </Button>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Current Model ID:{" "}
+          <span className="font-mono text-foreground">
+            {model.trim() || info.fallbackModel}
+          </span>
+          {model.trim() === "" && " (default)"}
+        </p>
+        {refreshError && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {refreshError}
+          </p>
+        )}
+        {fetched && fetched.length > 0 && (
+          <ModelPicker
+            models={fetched}
+            selected={model.trim()}
+            search={pickerSearch}
+            onSearch={setPickerSearch}
+            onPick={pickModel}
+          />
+        )}
+      </div>
     </div>
+  );
+}
+
+/** Searchable model list shown after a successful refresh. The currently
+ * selected model is pinned at the top with a ✓; picking any row fills the
+ * Model ID box. Manual entry always overrides. */
+function ModelPicker({
+  models,
+  selected,
+  search,
+  onSearch,
+  onPick,
+}: {
+  models: AiModelListItem[];
+  selected: string;
+  search: string;
+  onSearch: (value: string) => void;
+  onPick: (id: string) => void;
+}) {
+  const query = search.trim().toLowerCase();
+  const filtered = models.filter(
+    (model) =>
+      query === "" ||
+      model.id.toLowerCase().includes(query) ||
+      model.label.toLowerCase().includes(query),
+  );
+  const current = filtered.find((model) => model.id === selected);
+  const others = filtered.filter((model) => model.id !== selected);
+
+  return (
+    <div className="mt-2 rounded-lg border bg-secondary/20 p-2">
+      <div className="relative mb-2">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(event) => onSearch(event.target.value)}
+          placeholder={`Search ${models.length} models…`}
+          className="h-8 pl-8 text-xs"
+        />
+      </div>
+      <div className="max-h-48 space-y-0.5 overflow-y-auto">
+        {current && (
+          <>
+            <p className="px-1 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Selected
+            </p>
+            <ModelRow model={current} selected onPick={onPick} />
+          </>
+        )}
+        {others.length > 0 && (
+          <>
+            <p className="px-1 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {current ? "Other models" : "Models"}
+            </p>
+            {others.map((model) => (
+              <ModelRow key={model.id} model={model} onPick={onPick} />
+            ))}
+          </>
+        )}
+        {filtered.length === 0 && (
+          <p className="px-1 py-2 text-xs text-muted-foreground">
+            No match. Type any model id in the box above — it will still work.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ModelRow({
+  model,
+  selected,
+  onPick,
+}: {
+  model: AiModelListItem;
+  selected?: boolean;
+  onPick: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(model.id)}
+      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary"
+    >
+      {selected ? (
+        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+      ) : (
+        <span className="w-3.5 shrink-0" />
+      )}
+      <span className="min-w-0 flex-1 truncate">
+        <span className="font-mono">{model.id}</span>
+        {model.label !== model.id && (
+          <span className="ml-2 text-muted-foreground">{model.label}</span>
+        )}
+      </span>
+    </button>
   );
 }
 

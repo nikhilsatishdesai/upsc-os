@@ -32,15 +32,13 @@ export function ProviderIndicator({
 
   if (!resolved) return null;
   const label = AI_PROVIDERS[resolved.provider].label.split(" ")[0];
-  const model =
-    AI_PROVIDERS[resolved.provider].models.find(
-      (info) => info.id === resolved.model,
-    )?.label ?? resolved.model;
 
+  // The exact model id currently configured — no lookup table, so any
+  // future model shows correctly.
   return (
     <Badge variant="outline" className="gap-1.5 text-muted-foreground">
       <Cpu className="h-3 w-3" />
-      {label} · {model}
+      {label} · {resolved.model}
     </Badge>
   );
 }

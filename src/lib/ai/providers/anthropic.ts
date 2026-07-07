@@ -1,4 +1,10 @@
-import { AiError, type AiProviderAdapter, type AiRequest, type AiResponse } from "../types";
+import {
+  AiError,
+  type AiModelListItem,
+  type AiProviderAdapter,
+  type AiRequest,
+  type AiResponse,
+} from "../types";
 import { parseJson, readSseStream, safeFetch } from "./http";
 
 /**
@@ -15,6 +21,7 @@ import { parseJson, readSseStream, safeFetch } from "./http";
  */
 
 const API_URL = "https://api.anthropic.com/v1/messages";
+const MODELS_URL = "https://api.anthropic.com/v1/models?limit=1000";
 const API_VERSION = "2023-06-01";
 
 const JSON_INSTRUCTION =
@@ -143,5 +150,24 @@ export const anthropicAdapter: AiProviderAdapter = {
       provider: "anthropic",
       cached: false,
     } satisfies AiResponse;
+  },
+
+  async listModels(settings, fetchImpl, signal) {
+    const response = await safeFetch("anthropic", fetchImpl, MODELS_URL, {
+      method: "GET",
+      headers: headers(settings.apiKey),
+      signal,
+    });
+    const data = (await response.json()) as {
+      data?: { id?: string; display_name?: string }[];
+    };
+    return (data.data ?? [])
+      .filter((model): model is { id: string; display_name?: string } =>
+        typeof model.id === "string",
+      )
+      .map<AiModelListItem>((model) => ({
+        id: model.id,
+        label: model.display_name ?? model.id,
+      }));
   },
 };

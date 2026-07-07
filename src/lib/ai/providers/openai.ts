@@ -1,4 +1,9 @@
-import type { AiProviderAdapter, AiRequest, AiResponse } from "../types";
+import type {
+  AiModelListItem,
+  AiProviderAdapter,
+  AiRequest,
+  AiResponse,
+} from "../types";
 import { parseJson, readSseStream, safeFetch } from "./http";
 
 /**
@@ -9,6 +14,7 @@ import { parseJson, readSseStream, safeFetch } from "./http";
  */
 
 const API_URL = "https://api.openai.com/v1/chat/completions";
+const MODELS_URL = "https://api.openai.com/v1/models";
 
 function headers(apiKey: string): Record<string, string> {
   return {
@@ -107,5 +113,19 @@ export const openAiAdapter: AiProviderAdapter = {
       provider: "openai",
       cached: false,
     } satisfies AiResponse;
+  },
+
+  async listModels(settings, fetchImpl, signal) {
+    const response = await safeFetch("openai", fetchImpl, MODELS_URL, {
+      method: "GET",
+      headers: headers(settings.apiKey),
+      signal,
+    });
+    const data = (await response.json()) as { data?: { id?: string }[] };
+    // No whitelist — return every id the account can see; the picker's
+    // search handles the noise and any id can still be typed manually.
+    return (data.data ?? [])
+      .filter((model): model is { id: string } => typeof model.id === "string")
+      .map<AiModelListItem>((model) => ({ id: model.id, label: model.id }));
   },
 };

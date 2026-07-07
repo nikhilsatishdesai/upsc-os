@@ -1,7 +1,12 @@
 /** Public surface of the AI subsystem. UI imports from here (and the
  * service hook) — never from a provider adapter directly. */
 export * from "./types";
-export { AI_CONFIG, AI_PROVIDERS, resolveModelInfo } from "./config";
+export {
+  AI_CONFIG,
+  AI_PROVIDERS,
+  providerPricing,
+  fallbackModel,
+} from "./config";
 export { createAiClient, type AiClient, type AiRunOptions } from "./client";
 export {
   buildTopicContext,

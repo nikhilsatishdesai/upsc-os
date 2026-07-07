@@ -6,7 +6,15 @@
 
 ## Current Milestone
 
-**Phase C "AI Operating System" (Chanakya) — CODE-COMPLETE** (on top of Study Scope 0.5.1 / Phase B "Knowledge OS"). **Still NOT deployed** — founder must create GitHub + Vercel accounts (DEPLOYMENT.md, click-by-click). This has been the single blocking item since V1; remind the founder every session.
+**Phase C.1 "Future-proof AI model management" — CODE-COMPLETE** (on top of Phase C "AI Operating System" / Chanakya). **Still NOT deployed** — founder must create GitHub + Vercel accounts (DEPLOYMENT.md, click-by-click). This has been the single blocking item since V1; remind the founder every session.
+
+### Phase C.1 (0.6.1) essentials
+- **No hardcoded model names anywhere.** Provider setting is now `{ apiKey, selectedModel (free-form string), lastRefresh?, availableModels? }`. Removed `AI_PROVIDERS[].models`/`defaultModel`/`resolveModelInfo`; added per-provider `fallbackModel` (single overridable seed, NOT a list/whitelist) + coarse `providerPricing()`.
+- **Providers** gained `listModels()` (GET `/v1/models` for Claude/OpenAI, `…/v1beta/models` for Gemini). **AiClient/AiService** gained `listModels(provider)`. `resolveChain` uses `selectedModel` (blank → seed).
+- **Settings AI card** (`ai-settings.tsx`): Model-ID **text box** + "Current Model ID" readout + **Refresh models** button + searchable `ModelPicker` (selected pinned with ✓; picking fills the box; manual entry always wins; graceful fallback on refresh failure — no crash). Provider indicator shows the exact `selectedModel` string.
+- **ai-store v1→v2 migration** (`migrateAiV1ToV2`): renames `model`→`selectedModel`, drops obsolete key, preserves values. Backups: `sanitizeAiExport` reads `selectedModel` w/ legacy `model` fallback, no whitelist (backup format stays v6; keys never exported).
+- **Verified live:** pasted `claude-sonnet-6-future` → stored + sent verbatim (indicator "Claude · claude-sonnet-6-future"); v1→v2 migration on reload; Refresh degrades gracefully; routing intact. Docs: new `docs/AI_ARCHITECTURE.md`.
+- **Suggested next module (founder's idea):** an AI Usage Dashboard (requests today, tokens by provider, est. cost, avg response time, cache-hit rate, most-used features, export conversation history) — the usage log + `summarizeUsage` already hold this data.
 
 ### Phase C (0.6.0) essentials
 - **New AI subsystem `src/lib/ai/`** (pure, testable): `types.ts` (neutral shapes, `AiError`), `config.ts` (providers/models/pricing/routing/budgets — all tunables), `tokens.ts`, `cache.ts` (content-addressed LRU+TTL), `retry.ts` (backoff + fallback classification), `providers/*` (anthropic/openai/gemini adapters via raw `fetch` + shared SSE reader — **no vendor SDKs**), `client.ts` (routing → retry → fallback → cache → budget → usage, streaming + non-streaming), `context.ts` (ContextBuilder over existing engines), `prompts/*` (versioned builders), `actions.ts` (typed proposals → validate → execute via existing store actions), `memory.ts` (conversation window/summary + mentor memory), `structured.ts` (flashcard/quiz JSON parsing), `service.ts` (the AI service layer — one object, every feature).
@@ -66,7 +74,7 @@ V1 foundation → V2 planner → V3 intelligence engine → Phase A adaptive cor
 
 ## Commands Required
 
-- `npm run dev` · `npm test` (202) · `npm run lint` · `npm run build:check` (never plain `build` while dev server runs)
+- `npm run dev` · `npm test` (214) · `npm run lint` · `npm run build:check` (never plain `build` while dev server runs)
 
 ## Deployment Status
 

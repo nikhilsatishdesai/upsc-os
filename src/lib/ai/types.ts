@@ -148,11 +148,30 @@ export function isAiError(value: unknown): value is AiError {
   return value instanceof AiError;
 }
 
-/** Per-provider connection settings (persisted in the AI store). */
+/**
+ * Per-provider connection settings (persisted in the AI store).
+ *
+ * `selectedModel` is a FREE-FORM string — whatever model id the user typed
+ * (or picked from a refreshed list). The app never keeps a whitelist of
+ * model names, so any future model (e.g. "claude-sonnet-6", "gpt-6",
+ * "gemini-4-pro") works with no code change. Empty string = fall back to
+ * the provider's seed default (see ai/config.ts `fallbackModel`).
+ */
 export type AiProviderSettings = {
   apiKey: string;
-  /** Vendor model id; empty string = the configured default model. */
-  model: string;
+  selectedModel: string;
+  /** ISO timestamp of the last successful "Refresh models" fetch. */
+  lastRefresh?: string;
+  /** Optional cache of ids returned by the provider's list-models
+   * endpoint. Purely a convenience for the picker — stale or missing
+   * cache never affects functionality; a typed model id always works. */
+  availableModels?: string[];
+};
+
+/** One model id + label from a provider's list-models endpoint. */
+export type AiModelListItem = {
+  id: string;
+  label: string;
 };
 
 export type AiProvidersConfig = Partial<
@@ -205,4 +224,13 @@ export type AiProviderAdapter = {
     fetchImpl: typeof fetch,
     signal?: AbortSignal,
   ): Promise<AiResponse>;
+  /** List the models the provider currently exposes for this key. Optional
+   * — providers without a list endpoint omit it and the UI falls back to
+   * manual entry. Never throws for "no such endpoint"; real failures throw
+   * a typed AiError the caller can surface. */
+  listModels?(
+    settings: { apiKey: string },
+    fetchImpl: typeof fetch,
+    signal?: AbortSignal,
+  ): Promise<AiModelListItem[]>;
 };

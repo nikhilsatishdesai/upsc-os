@@ -1,4 +1,9 @@
-import { AI_CONFIG, AI_PROVIDERS, resolveModelInfo } from "./config";
+import {
+  AI_CONFIG,
+  AI_PROVIDERS,
+  fallbackModel,
+  providerPricing,
+} from "./config";
 import { cacheKey, type AiCacheEntry } from "./cache";
 import { getProviderAdapter } from "./providers";
 import { backoffDelayMs, isFallbackWorthy, isRetryable } from "./retry";
@@ -8,6 +13,7 @@ import {
   type AiCapability,
   type AiClientConfig,
   type AiFeature,
+  type AiModelListItem,
   type AiProviderAdapter,
   type AiProviderId,
   type AiRequest,
@@ -75,6 +81,13 @@ export type AiClient = {
     handlers: AiStreamHandlers,
     options: AiRunOptions,
   ) => Promise<AiResponse>;
+  /** Fetch the models a provider currently exposes for its configured key.
+   * Rejects with a typed AiError (not-configured / auth / network / …) so
+   * the UI can fall back to manual entry gracefully. */
+  listModels: (
+    provider: AiProviderId,
+    signal?: AbortSignal,
+  ) => Promise<AiModelListItem[]>;
 };
 
 const defaultSleep = (ms: number) =>
@@ -117,10 +130,12 @@ export function createAiClient(deps: AiClientDeps): AiClient {
       const settings = config.providers[id];
       chain.push({
         provider: id,
+        // The user's typed model wins verbatim; a blank falls back to the
+        // provider's single seed so a fresh key still works out of the box.
         model:
-          settings && settings.model !== ""
-            ? settings.model
-            : AI_PROVIDERS[id].defaultModel,
+          settings && settings.selectedModel.trim() !== ""
+            ? settings.selectedModel.trim()
+            : fallbackModel(id),
       });
     }
     return chain;
@@ -163,7 +178,7 @@ export function createAiClient(deps: AiClientDeps): AiClient {
     partial: Omit<AiUsageRecord, "at" | "estimatedCostUsd">,
   ): void {
     if (!deps.onUsage) return;
-    const pricing = resolveModelInfo(partial.provider, partial.model);
+    const pricing = providerPricing(partial.provider);
     deps.onUsage({
       ...partial,
       at: new Date(now()).toISOString(),
@@ -348,11 +363,41 @@ export function createAiClient(deps: AiClientDeps): AiClient {
     throw lastError;
   }
 
+  async function listModels(
+    provider: AiProviderId,
+    signal?: AbortSignal,
+  ): Promise<AiModelListItem[]> {
+    const config = deps.getConfig();
+    const settings = config.providers[provider];
+    if (!settings || settings.apiKey === "") {
+      throw new AiError(
+        "not-configured",
+        `Add an API key for ${AI_PROVIDERS[provider].label} first.`,
+        { provider },
+      );
+    }
+    const adapter = adapterFor(provider);
+    if (!adapter.listModels) {
+      throw new AiError(
+        "bad-request",
+        `${AI_PROVIDERS[provider].label} does not expose a model list.`,
+        { provider },
+      );
+    }
+    const models = await adapter.listModels(
+      { apiKey: settings.apiKey },
+      fetchImpl,
+      signal,
+    );
+    return [...models].sort((a, b) => a.id.localeCompare(b.id));
+  }
+
   return {
     isConfigured: () => configuredProviders().length > 0,
     configuredProviders,
     resolveChain,
     request: (request, options) => run(request, options, null),
     stream: (request, handlers, options) => run(request, options, handlers),
+    listModels,
   };
 }

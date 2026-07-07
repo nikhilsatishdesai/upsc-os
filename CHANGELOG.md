@@ -2,6 +2,24 @@
 
 All notable changes to UPSC OS are documented here.
 
+## [0.6.1] — Phase C.1 "Future-proof AI provider & model management" — 2026-07-06 (code complete; deployment pending)
+
+A targeted, backward-compatible refactor so UPSC OS **never needs a code change or redeploy when a provider releases a new model**. No architecture rewrite; planner, knowledge workspace and Chanakya's conversation engine untouched.
+
+### Changed
+- **No hardcoded model names anywhere** — removed every hardcoded model list and dropdown. Each provider now stores a free-form `selectedModel` string; whatever you type is sent verbatim. Paste `claude-sonnet-6`, `gpt-6`, `gemini-4-pro` — or anything future — with zero code changes.
+- **Settings → AI, per provider**: a **Model ID** text box with a live "Current Model ID" readout (no dropdown), and a **Refresh models** button.
+- **Refresh models** — fetches the provider's live model list (`/v1/models` for Claude/OpenAI, `…/v1beta/models` for Gemini) and shows a searchable picker (selected model pinned with a ✓). If a provider has no list endpoint or the call fails, it falls back to manual entry with a calm note — no error, no crash.
+- **Manual override always wins** — the only validation is non-empty; if a provider rejects a model id, its own error is shown. The app keeps no whitelist.
+- **Routing unchanged** — capability routing still maps a capability to a provider; the model used is that provider's `selectedModel`.
+- Cost manager now uses coarse **per-provider** pricing (per-model pricing dropped so new models need no code change); usage/requests/cost/response-time/failures tracking is unchanged.
+
+### Migration & compatibility
+- Automatic **AI store v1 → v2** migration renames the old `model` field to `selectedModel` and drops the obsolete key — no user action, existing model choices preserved.
+- Backups still import unchanged: `sanitizeAiExport` reads `selectedModel` and falls back to the legacy `model` key (backup format stays v6; API keys still never exported).
+- 214 tests pass (202 prior + 12 new: model-agnostic store, v1→v2 migration, per-provider `listModels` parsing, refresh flow, arbitrary/future model-id routing). Lint clean; isolated build green; live-verified (future model id pasted & sent verbatim, migration, graceful refresh fallback, routing, provider indicator).
+- New doc: `docs/AI_ARCHITECTURE.md`.
+
 ## [0.6.0] — Phase C "AI Operating System" (Chanakya) — 2026-07-06 (code complete; deployment pending)
 
 ### Added — the intelligence layer

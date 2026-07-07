@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
 import { makeId } from "@/lib/id";
-import { AI_CONFIG, AI_PROVIDERS } from "@/lib/ai/config";
+import { AI_CONFIG } from "@/lib/ai/config";
 import {
   cacheGet,
   cachePrune,
@@ -34,7 +34,45 @@ import {
 } from "@/lib/ai/types";
 import { getNode } from "@/lib/syllabus";
 
-export const AI_STORE_VERSION = 1;
+export const AI_STORE_VERSION = 2;
+
+/**
+ * v1 → v2: the provider setting `model` (a plain string) became
+ * `selectedModel`, and providers gained optional `lastRefresh` /
+ * `availableModels`. The old value is a model id string already, so the
+ * migration just carries it across and drops the obsolete `model` key —
+ * no user intervention, existing model choices preserved.
+ */
+export function migrateAiV1ToV2(persisted: unknown): unknown {
+  if (typeof persisted !== "object" || persisted === null) return persisted;
+  const state = persisted as Record<string, unknown>;
+  const rawProviders = state.providers;
+  if (typeof rawProviders !== "object" || rawProviders === null) return state;
+  const providers: Record<string, unknown> = {};
+  for (const [id, value] of Object.entries(
+    rawProviders as Record<string, unknown>,
+  )) {
+    if (typeof value !== "object" || value === null) continue;
+    const provider = value as Record<string, unknown>;
+    const legacyModel =
+      typeof provider.selectedModel === "string"
+        ? provider.selectedModel
+        : typeof provider.model === "string"
+          ? provider.model
+          : "";
+    providers[id] = {
+      apiKey: typeof provider.apiKey === "string" ? provider.apiKey : "",
+      selectedModel: legacyModel,
+      ...(Array.isArray(provider.availableModels)
+        ? { availableModels: provider.availableModels }
+        : {}),
+      ...(typeof provider.lastRefresh === "string"
+        ? { lastRefresh: provider.lastRefresh }
+        : {}),
+    };
+  }
+  return { ...state, providers };
+}
 
 /** One line in the "Recent AI activity" feed (features run, actions taken). */
 export type AiActivityEntry = {
@@ -51,7 +89,7 @@ export type AiActivityEntry = {
  * shared/synced; keys stay on this device only. */
 export type AiExport = {
   /** Provider settings with keys stripped (model choices survive). */
-  providers: Partial<Record<AiProviderId, { model: string }>>;
+  providers: Partial<Record<AiProviderId, { selectedModel: string }>>;
   order: AiProviderId[];
   routing: Partial<Record<AiCapability, AiProviderId[]>>;
   dailyBudgetTokens: number;
@@ -74,7 +112,15 @@ type AiState = {
   memory: MentorMemory;
   activity: AiActivityEntry[];
 
-  setProvider: (id: AiProviderId, settings: { apiKey: string; model: string }) => void;
+  setProvider: (
+    id: AiProviderId,
+    settings: { apiKey: string; selectedModel: string },
+  ) => void;
+  /** Update only the chosen model id (any free-form string). */
+  setProviderModel: (id: AiProviderId, selectedModel: string) => void;
+  /** Cache the ids returned by a "Refresh models" fetch (convenience only;
+   * never required for a typed model to work). */
+  cacheProviderModels: (id: AiProviderId, availableModels: string[]) => void;
   removeProvider: (id: AiProviderId) => void;
   setProviderOrder: (order: AiProviderId[]) => void;
   setRouting: (capability: AiCapability, order: AiProviderId[] | null) => void;
@@ -128,11 +174,40 @@ export const useAiStore = create<AiState>()(
           providers: {
             ...state.providers,
             [id]: {
+              ...state.providers[id],
               apiKey: settings.apiKey.trim(),
-              model: settings.model,
+              selectedModel: settings.selectedModel.trim(),
             },
           },
         })),
+
+      setProviderModel: (id, selectedModel) =>
+        set((state) => {
+          const existing = state.providers[id];
+          if (!existing) return state;
+          return {
+            providers: {
+              ...state.providers,
+              [id]: { ...existing, selectedModel: selectedModel.trim() },
+            },
+          };
+        }),
+
+      cacheProviderModels: (id, availableModels) =>
+        set((state) => {
+          const existing = state.providers[id];
+          if (!existing) return state;
+          return {
+            providers: {
+              ...state.providers,
+              [id]: {
+                ...existing,
+                availableModels,
+                lastRefresh: new Date().toISOString(),
+              },
+            },
+          };
+        }),
 
       removeProvider: (id) =>
         set((state) => {
@@ -310,7 +385,7 @@ export const useAiStore = create<AiState>()(
               id,
               {
                 apiKey: state.providers[id as AiProviderId]?.apiKey ?? "",
-                model: settings.model,
+                selectedModel: settings.selectedModel,
               },
             ]),
           ) as AiProvidersConfig,
@@ -328,6 +403,8 @@ export const useAiStore = create<AiState>()(
       name: "upsc-os-ai",
       version: AI_STORE_VERSION,
       storage: createJSONStorage(() => localStorage),
+      migrate: (persisted, version) =>
+        version < 2 ? migrateAiV1ToV2(persisted) : persisted,
       partialize: (state) => ({
         providers: state.providers,
         order: state.order,
@@ -443,7 +520,7 @@ export function exportAi(): AiExport {
     providers: Object.fromEntries(
       Object.entries(state.providers).map(([id, settings]) => [
         id,
-        { model: settings?.model ?? "" },
+        { selectedModel: settings?.selectedModel ?? "" },
       ]),
     ),
     order: state.order,
@@ -504,9 +581,11 @@ export function sanitizeAiExport(raw: unknown): AiExport {
     )) {
       if (!isAiProviderId(id) || typeof value !== "object" || value === null)
         continue;
-      const model = str((value as Record<string, unknown>).model);
-      const known = AI_PROVIDERS[id].models.some((info) => info.id === model);
-      providers[id] = { model: known ? model : "" };
+      const settings = value as Record<string, unknown>;
+      // Accept any model id verbatim (no whitelist). Read the new field,
+      // falling back to the legacy `model` key from pre-C.1 backups.
+      const selectedModel = str(settings.selectedModel, str(settings.model));
+      providers[id] = { selectedModel };
     }
   }
 

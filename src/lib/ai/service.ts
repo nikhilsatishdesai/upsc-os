@@ -165,6 +165,10 @@ export function createAiService(deps: AiServiceDeps) {
     isConfigured: () => client.isConfigured(),
     configuredProviders: () => client.configuredProviders(),
     resolveChain: client.resolveChain,
+    /** Fetch the models a provider currently exposes (for the Settings
+     * "Refresh models" picker). Rejects with a typed AiError on failure so
+     * the UI can fall back to manual entry. */
+    listModels: client.listModels,
 
     /* ---- Knowledge workspace ---- */
 

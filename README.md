@@ -7,6 +7,7 @@
 ## What it does today
 
 - **Chanakya — your AI mentor** — a dedicated command centre that *sees your entire preparation* (syllabus, planner, analytics, notes, revisions, PYQs) with no pasting, explains its reasoning, and — with your confirmation — acts: rebuild the schedule, adjust priorities, plan topics, create flashcards, bookmark, set vacations. Streams replies, remembers past conversations and your accepted/rejected suggestions. Works with Claude, OpenAI or Gemini (your key, switchable in Settings); the app never couples to one vendor. AI is optional — everything degrades gracefully without a key.
+- **Future-proof model choice** — no hardcoded model list: type any model id (or hit **Refresh models** to fetch the provider's current list) and it's used as-is. New models from Anthropic, OpenAI or Google work the day they launch, with no app update.
 - **AI woven through the app** — summarize/explain/improve/simplify notes, generate flashcards & quizzes and mnemonics on any topic; a daily briefing on the dashboard; "Ask Chanakya" on the planner; plain-language explanations of burnout, forecast and readiness in Analytics
 - **Topic workspaces** — every syllabus topic is a complete knowledge base: rich markdown notes (tables, checklists, callouts, code), quick notes & mnemonics, flashcards with review mode, keywords, book references, resources, previous-year questions, current-affairs links, bookmarks, and a full study timeline
 - **Knowledge search** — Ctrl+K fuzzy-searches everything you've ever written or saved, with type filters

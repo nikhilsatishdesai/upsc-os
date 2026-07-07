@@ -29,6 +29,7 @@ const {
   summarizeUsage,
   exportAi,
   sanitizeAiExport,
+  migrateAiV1ToV2,
 } = await import("@/store/ai-store");
 const { exportStateToJSON, parseExportedState, BACKUP_VERSION } = await import(
   "@/store/app-store"
@@ -42,10 +43,13 @@ beforeEach(() => useAiStore.getState().resetAi());
 describe("provider configuration", () => {
   it("sets, orders and clears providers", () => {
     const store = useAiStore.getState();
-    store.setProvider("anthropic", { apiKey: "  k  ", model: "claude-opus-4-8" });
+    store.setProvider("anthropic", {
+      apiKey: "  k  ",
+      selectedModel: "claude-opus-4-8",
+    });
     expect(useAiStore.getState().providers.anthropic).toEqual({
       apiKey: "k", // trimmed
-      model: "claude-opus-4-8",
+      selectedModel: "claude-opus-4-8",
     });
     expect(aiConfigured(useAiStore.getState().providers)).toBe(true);
 
@@ -54,6 +58,26 @@ describe("provider configuration", () => {
 
     store.removeProvider("anthropic");
     expect(aiConfigured(useAiStore.getState().providers)).toBe(false);
+  });
+
+  it("accepts ANY model id verbatim — no whitelist, no code change", () => {
+    const store = useAiStore.getState();
+    // Models that don't exist yet must still be storable and sent as-is.
+    store.setProvider("anthropic", { apiKey: "k", selectedModel: "claude-sonnet-6" });
+    store.setProviderModel("anthropic", "  gpt-99-ultra  ");
+    expect(useAiStore.getState().providers.anthropic?.selectedModel).toBe(
+      "gpt-99-ultra",
+    );
+  });
+
+  it("caches refreshed model ids without affecting the selected model", () => {
+    const store = useAiStore.getState();
+    store.setProvider("gemini", { apiKey: "g", selectedModel: "gemini-3-pro" });
+    store.cacheProviderModels("gemini", ["gemini-3-pro", "gemini-4-ultra"]);
+    const provider = useAiStore.getState().providers.gemini;
+    expect(provider?.availableModels).toEqual(["gemini-3-pro", "gemini-4-ultra"]);
+    expect(provider?.selectedModel).toBe("gemini-3-pro"); // unchanged
+    expect(typeof provider?.lastRefresh).toBe("string");
   });
 
   it("stores per-capability routing and clears it", () => {
@@ -65,7 +89,7 @@ describe("provider configuration", () => {
   });
 
   it("exposes a client config snapshot", () => {
-    useAiStore.getState().setProvider("openai", { apiKey: "o", model: "" });
+    useAiStore.getState().setProvider("openai", { apiKey: "o", selectedModel: "" });
     const config = aiClientConfig(useAiStore.getState());
     expect(config.providers.openai?.apiKey).toBe("o");
   });
@@ -168,22 +192,30 @@ describe("conversations & memory", () => {
 describe("export / import", () => {
   it("never exports API keys but preserves models, routing and memory", () => {
     const store = useAiStore.getState();
-    store.setProvider("anthropic", { apiKey: "secret", model: "claude-opus-4-8" });
+    store.setProvider("anthropic", {
+      apiKey: "secret",
+      selectedModel: "claude-opus-4-8",
+    });
     store.setRouting("summary", ["anthropic"]);
     store.recordActionDecision("Rebuild plan", true);
 
     const exported = exportAi();
     expect(JSON.stringify(exported)).not.toContain("secret");
-    expect(exported.providers.anthropic).toEqual({ model: "claude-opus-4-8" });
+    expect(exported.providers.anthropic).toEqual({
+      selectedModel: "claude-opus-4-8",
+    });
     expect(exported.routing.summary).toEqual(["anthropic"]);
     expect(exported.memory.acceptedActions[0]).toContain("Rebuild plan");
   });
 
   it("import keeps existing on-device keys while applying models/memory", () => {
     const store = useAiStore.getState();
-    store.setProvider("anthropic", { apiKey: "mykey", model: "claude-opus-4-8" });
+    store.setProvider("anthropic", {
+      apiKey: "mykey",
+      selectedModel: "claude-opus-4-8",
+    });
     store.importAi({
-      providers: { anthropic: { model: "claude-sonnet-5" } },
+      providers: { anthropic: { selectedModel: "claude-sonnet-5" } },
       order: ["anthropic"],
       routing: {},
       dailyBudgetTokens: 500000,
@@ -198,13 +230,18 @@ describe("export / import", () => {
     });
     const providers = useAiStore.getState().providers;
     expect(providers.anthropic?.apiKey).toBe("mykey"); // key retained
-    expect(providers.anthropic?.model).toBe("claude-sonnet-5"); // model applied
+    expect(providers.anthropic?.selectedModel).toBe("claude-sonnet-5"); // model applied
     expect(useAiStore.getState().memory.preferences).toEqual(["evenings"]);
   });
 
-  it("sanitizes malformed backup AI sections (drop-don't-throw)", () => {
+  it("sanitizes AI sections and accepts any model id (legacy `model` too)", () => {
     const clean = sanitizeAiExport({
-      providers: { anthropic: { model: "unknown-model" }, bogus: { model: "x" } },
+      // Legacy pre-C.1 key `model`, plus a future id via the new key.
+      providers: {
+        anthropic: { model: "some-future-model" },
+        openai: { selectedModel: "gpt-9" },
+        bogus: { selectedModel: "x" },
+      },
       order: ["anthropic", "not-a-provider"],
       routing: { summary: ["anthropic"], badcap: ["x"] },
       dailyBudgetTokens: -5,
@@ -220,7 +257,9 @@ describe("export / import", () => {
       },
       memory: { preferences: ["p"], junk: 1 },
     });
-    expect(clean.providers.anthropic).toEqual({ model: "" }); // unknown model reset
+    // No whitelist: any id survives; legacy `model` maps to selectedModel.
+    expect(clean.providers.anthropic).toEqual({ selectedModel: "some-future-model" });
+    expect(clean.providers.openai).toEqual({ selectedModel: "gpt-9" });
     expect(clean.providers).not.toHaveProperty("bogus");
     expect(clean.order).toEqual(["anthropic"]);
     expect(clean.routing).not.toHaveProperty("badcap");
@@ -230,11 +269,37 @@ describe("export / import", () => {
   });
 });
 
+describe("v1 → v2 store migration", () => {
+  it("renames `model` to `selectedModel` and drops the obsolete key", () => {
+    const migrated = migrateAiV1ToV2({
+      providers: {
+        anthropic: { apiKey: "k", model: "claude-opus-4-8" },
+        openai: { apiKey: "o", model: "gpt-4.1-mini" },
+      },
+      order: ["anthropic", "openai"],
+    }) as { providers: Record<string, Record<string, unknown>> };
+    expect(migrated.providers.anthropic.selectedModel).toBe("claude-opus-4-8");
+    expect(migrated.providers.anthropic).not.toHaveProperty("model");
+    expect(migrated.providers.anthropic.apiKey).toBe("k");
+    expect(migrated.providers.openai.selectedModel).toBe("gpt-4.1-mini");
+  });
+
+  it("is a no-op for already-migrated (v2) state", () => {
+    const state = {
+      providers: { gemini: { apiKey: "g", selectedModel: "gemini-2.5-flash" } },
+    };
+    const migrated = migrateAiV1ToV2(state) as {
+      providers: Record<string, Record<string, unknown>>;
+    };
+    expect(migrated.providers.gemini.selectedModel).toBe("gemini-2.5-flash");
+  });
+});
+
 describe("backup format v6 (backward compatibility)", () => {
   it("round-trips the AI section through app-store backup", () => {
     useAiStore.getState().setProvider("anthropic", {
       apiKey: "secret",
-      model: "claude-opus-4-8",
+      selectedModel: "claude-opus-4-8",
     });
     useAiStore.getState().recordActionDecision("Rebuild plan", true);
 
@@ -246,7 +311,7 @@ describe("backup format v6 (backward compatibility)", () => {
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
       expect(parsed.data.ai?.providers.anthropic).toEqual({
-        model: "claude-opus-4-8",
+        selectedModel: "claude-opus-4-8",
       });
       expect(parsed.data.ai?.memory.acceptedActions[0]).toContain("Rebuild plan");
     }

@@ -30,6 +30,14 @@ function sseResponse(chunks: string[]): Response {
   return new Response(stream, { status: 200 });
 }
 
+/** The [url, init] of a mock fetch call (the no-arg mock infers `[]`). */
+function callOf(
+  mock: { mock: { calls: unknown[] } },
+  index = 0,
+): [string, RequestInit] {
+  return mock.mock.calls[index] as unknown as [string, RequestInit];
+}
+
 describe("Anthropic adapter", () => {
   it("puts system top-level, omits temperature, sets the browser header, parses usage", async () => {
     const fetchMock = vi.fn(
@@ -48,7 +56,7 @@ describe("Anthropic adapter", () => {
       request,
       fetchMock as unknown as typeof fetch,
     );
-    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const init = callOf(fetchMock)[1];
     const body = JSON.parse(init.body as string);
     expect(body.system).toContain("You are a mentor.");
     expect(body.system).toContain("JSON"); // json instruction appended
@@ -105,7 +113,7 @@ describe("OpenAI adapter", () => {
       request,
       fetchMock as unknown as typeof fetch,
     );
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    const body = JSON.parse(callOf(fetchMock)[1].body as string);
     expect(body.messages[0]).toEqual({ role: "system", content: "You are a mentor." });
     expect(body.response_format).toEqual({ type: "json_object" });
     expect(body.temperature).toBe(0.5);
@@ -130,7 +138,7 @@ describe("Gemini adapter", () => {
       request,
       fetchMock as unknown as typeof fetch,
     );
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = callOf(fetchMock);
     const body = JSON.parse(init.body as string);
     expect(url).not.toContain("k"); // key not in URL
     expect((init.headers as Record<string, string>)["x-goog-api-key"]).toBe("k");
@@ -190,5 +198,83 @@ describe("OpenAI streaming", () => {
     expect(deltas.join("")).toBe("Hello");
     expect(response.text).toBe("Hello");
     expect(response.usage).toEqual({ inputTokens: 2, outputTokens: 3 });
+  });
+});
+
+describe("listModels — provider-agnostic model discovery", () => {
+  it("Anthropic maps id + display_name", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          data: [
+            { id: "claude-sonnet-5", display_name: "Claude Sonnet 5" },
+            { id: "claude-future-9" }, // no display_name → id as label
+            { display_name: "no id" }, // dropped
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    const models = await anthropicAdapter.listModels!(
+      { apiKey: "k" },
+      fetchMock as unknown as typeof fetch,
+    );
+    const [url, init] = callOf(fetchMock);
+    expect(url).toContain("/v1/models");
+    expect(init.method).toBe("GET");
+    expect(models).toEqual([
+      { id: "claude-sonnet-5", label: "Claude Sonnet 5" },
+      { id: "claude-future-9", label: "claude-future-9" },
+    ]);
+  });
+
+  it("OpenAI returns every id verbatim (no whitelist)", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ data: [{ id: "gpt-6" }, { id: "gpt-9-ultra" }] }),
+        { status: 200 },
+      ),
+    );
+    const models = await openAiAdapter.listModels!(
+      { apiKey: "k" },
+      fetchMock as unknown as typeof fetch,
+    );
+    expect(models.map((m) => m.id)).toEqual(["gpt-6", "gpt-9-ultra"]);
+  });
+
+  it("Gemini strips the models/ prefix and filters to chat models", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          models: [
+            {
+              name: "models/gemini-4-pro",
+              displayName: "Gemini 4 Pro",
+              supportedGenerationMethods: ["generateContent"],
+            },
+            {
+              name: "models/embedding-1",
+              supportedGenerationMethods: ["embedContent"], // dropped
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    const models = await geminiAdapter.listModels!(
+      { apiKey: "k" },
+      fetchMock as unknown as typeof fetch,
+    );
+    expect(models).toEqual([{ id: "gemini-4-pro", label: "Gemini 4 Pro" }]);
+  });
+
+  it("surfaces auth failures as typed errors (UI falls back to manual)", async () => {
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 401 }));
+    await expect(
+      anthropicAdapter.listModels!(
+        { apiKey: "bad" },
+        fetchMock as unknown as typeof fetch,
+      ),
+    ).rejects.toMatchObject({ kind: "auth" });
   });
 });

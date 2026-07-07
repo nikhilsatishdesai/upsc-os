@@ -15,9 +15,9 @@ milestone, but zero production exposure and known accepted debt below.
 |---|---|
 | Source files (TS/TSX) | 118 (incl. 12 test files) |
 | Lines of code | ~16,500 (components 7,290 · lib 5,272 · store 2,604 · data 874 · app 438 · hooks 18) |
-| Tests | 202 passing, 23 suites (119 prior + 83 AI) |
-| Git commits (milestones) | 30 |
-| Persisted stores | 3 (`upsc-os-store` v4, `upsc-os-knowledge` v1, `upsc-os-ai` v1) + backup format v6 |
+| Tests | 214 passing, 23 suites (119 prior + 95 AI) |
+| Git commits (milestones) | 31 |
+| Persisted stores | 3 (`upsc-os-store` v4, `upsc-os-knowledge` v1, `upsc-os-ai` v2) + backup format v6 |
 | Routes/pages | 6 routes → 303 statically generated pages |
 | Reusable UI primitives | 14 (`components/ui`) |
 | Feature components | 49 |
@@ -48,7 +48,9 @@ scoped so far: ~95% (deployment is the missing 5%).
 2. ~~Phase C: AI~~ — **SHIPPED (0.6.0)**: unified AI layer, Chanakya
    workspace, embedded AI, provider abstraction, context/prompt/action
    layers, streaming, caching, cost manager. Essay/Interview builders exist
-   in the service; only their UI surfaces remain.
+   in the service; only their UI surfaces remain. **Phase C.1 (0.6.1)**:
+   provider-/model-agnostic config — no hardcoded model lists; free-form
+   model ids + Refresh-models picker; future models need no code change.
 3. PYQ Intelligence (bulk bank + weightage analytics) — builds on `pyqs`;
    AI PYQ analysis already wired in the service.
 4. Revision OS — SRS for flashcards (metadata present; AI revision coach ready).

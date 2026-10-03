@@ -6,7 +6,7 @@ import {
   PLANNER_CONFIG,
   PLANNER_SETTING_DEFAULTS,
 } from "@/lib/planner/config";
-import { todayStr, WEEKDAY_NAMES } from "@/lib/planner/dates";
+import { todayStr, typicalExamDates, WEEKDAY_NAMES } from "@/lib/planner/dates";
 import type { PlannerSettings } from "@/lib/planner/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +24,8 @@ const defaultSettings: PlannerSettings = {
   wakeUpTime: "05:30",
   studyStartTime: "06:00",
   weeklyOffDay: 0,
-  maxSessionsPerDay: 3,
-  sessionMinutes: 60,
+  maxSessionsPerDay: 4,
+  sessionMinutes: 90,
   ...PLANNER_SETTING_DEFAULTS,
 };
 
@@ -106,6 +106,27 @@ export function SetupForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {!initialSettings && (
+        <div className="callout items-center text-sm">
+          <span aria-hidden>📅</span>
+          <span className="flex-1">
+            Not sure of the dates yet? Start with the usual UPSC calendar and
+            correct it when the notification is out.
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const typical = typicalExamDates();
+              setPrelimsDate(typical.prelims);
+              update({ mainsDate: typical.mains });
+            }}
+          >
+            Use typical dates
+          </Button>
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="setup-prelims">Target Prelims date</Label>

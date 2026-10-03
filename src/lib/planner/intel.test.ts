@@ -7,7 +7,8 @@ import {
   subjectNameOf,
 } from "@/lib/planner/intel";
 import { DEFAULT_TOPIC_STATE } from "@/lib/stages";
-import { getAllNodes, isLeaf } from "@/lib/syllabus";
+import { getAllNodes, getNode, isLeaf } from "@/lib/syllabus";
+import { topicIntelOverrides, unitIntelDefaults } from "@/data/topic-intel";
 
 const FR = "prelims.gs.polity.constitution.fundamental-rights";
 
@@ -74,5 +75,23 @@ describe("intelligence resolution", () => {
   it("provides subject and paper labels for task cards", () => {
     expect(paperShortName(FR)).toBe("Prelims GS");
     expect(subjectNameOf(FR)).toBe("Indian Polity & Governance");
+    expect(paperShortName("mains.psir1.western-thought.plato")).toBe("PSIR-I");
+    expect(paperShortName("mains.psir2.power-centres.china")).toBe("PSIR-II");
+  });
+
+  it("curated hints only reference real syllabus nodes (typo guard)", () => {
+    for (const id of Object.keys(unitIntelDefaults)) {
+      expect(getNode(id), `unit default ${id}`).toBeDefined();
+    }
+    for (const id of Object.keys(topicIntelOverrides)) {
+      const node = getNode(id);
+      expect(node, `topic override ${id}`).toBeDefined();
+      expect(isLeaf(node!), `override ${id} must be a leaf`).toBe(true);
+    }
+  });
+
+  it("PSIR theory outranks peripheral PSIR material", () => {
+    expect(curatedTopicIntel("mains.psir1.concepts.justice").priority).toBe("critical");
+    expect(curatedTopicIntel("mains.psir2.regionalisation.nafta").priority).toBe("medium");
   });
 });

@@ -28,49 +28,56 @@ export const STAGE_ORDER: StudyStage[] = [
  */
 export const STAGE_META: Record<
   StudyStage,
-  { label: string; weight: number; dot: string; text: string }
+  { label: string; weight: number; dot: string; text: string; tag: string }
 > = {
   "not-started": {
     label: "Not started",
     weight: 0,
     dot: "bg-muted-foreground/30",
     text: "text-muted-foreground",
+    tag: "tag-gray",
   },
   "first-reading": {
     label: "First reading",
     weight: 0.4,
     dot: "bg-sky-500",
     text: "text-sky-600 dark:text-sky-400",
+    tag: "tag-blue",
   },
   "notes-made": {
     label: "Notes made",
     weight: 0.55,
     dot: "bg-amber-500",
     text: "text-amber-600 dark:text-amber-400",
+    tag: "tag-yellow",
   },
   "revision-1": {
     label: "Revision 1",
     weight: 0.7,
     dot: "bg-lime-500",
     text: "text-lime-600 dark:text-lime-400",
+    tag: "tag-green",
   },
   "revision-2": {
     label: "Revision 2",
     weight: 0.8,
     dot: "bg-emerald-500",
     text: "text-emerald-600 dark:text-emerald-400",
+    tag: "tag-green",
   },
   "revision-3": {
     label: "Revision 3",
     weight: 0.9,
     dot: "bg-teal-500",
     text: "text-teal-600 dark:text-teal-400",
+    tag: "tag-green",
   },
   "exam-ready": {
     label: "Exam ready",
     weight: 1,
     dot: "bg-violet-500",
     text: "text-violet-600 dark:text-violet-400",
+    tag: "tag-purple",
   },
 };
 
@@ -160,27 +167,25 @@ export const PRIORITY_META: Record<
     label: "Critical",
     rank: 0,
     dot: "bg-red-500",
-    badge:
-      "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400",
+    badge: "border-transparent tag-red",
   },
   high: {
     label: "High",
     rank: 1,
     dot: "bg-orange-500",
-    badge:
-      "border-orange-500/30 bg-orange-500/10 text-orange-600 dark:text-orange-400",
+    badge: "border-transparent tag-orange",
   },
   medium: {
     label: "Medium",
     rank: 2,
     dot: "bg-sky-500",
-    badge: "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400",
+    badge: "border-transparent tag-blue",
   },
   low: {
     label: "Low",
     rank: 3,
     dot: "bg-muted-foreground/40",
-    badge: "border-border bg-secondary text-muted-foreground",
+    badge: "border-transparent tag-gray",
   },
 };
 

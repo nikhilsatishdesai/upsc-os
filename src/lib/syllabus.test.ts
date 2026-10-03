@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getAdjacentLeaves,
   getAllNodes,
   getBreadcrumbs,
   getChildren,
@@ -60,7 +61,7 @@ describe("syllabus data integrity", () => {
     const stages = getStages();
     expect(stages.map((s) => s.stage.id)).toEqual(["prelims", "mains"]);
     expect(stages[0].papers).toHaveLength(2); // GS + CSAT
-    expect(stages[1].papers).toHaveLength(6); // Essay, GS1-4, languages
+    expect(stages[1].papers).toHaveLength(8); // Essay, GS1-4, PSIR I-II, languages
   });
 
   it("covers a substantial syllabus (sanity check against accidental data loss)", () => {
@@ -84,5 +85,21 @@ describe("syllabus data integrity", () => {
       "prelims.gs",
       "prelims.csat",
     ]);
+  });
+
+  it("navigates adjacent leaves in authored order within a paper", () => {
+    const first = getAdjacentLeaves("mains.psir1.western-thought.plato");
+    expect(first.prev?.id).toBe("mains.psir1.indian-thought.mn-roy");
+    expect(first.next?.id).toBe("mains.psir1.western-thought.aristotle");
+    expect(first.total).toBe(getLeafIds("mains.psir1").length);
+
+    const paperStart = getAdjacentLeaves("mains.psir1.theory.meaning-approaches");
+    expect(paperStart.prev).toBeNull();
+    expect(paperStart.position).toBe(1);
+
+    const paperEnd = getAdjacentLeaves("mains.psir2.recent.new-world-order");
+    expect(paperEnd.next).toBeNull();
+    expect(paperEnd.position).toBe(paperEnd.total);
+    expect(getAdjacentLeaves("mains.psir1").prev).toBeNull();
   });
 });

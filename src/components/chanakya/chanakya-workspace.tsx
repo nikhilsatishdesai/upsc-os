@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
 
 import type { AiAction } from "@/lib/ai/actions";
 import { aiConfigured, useAiStore } from "@/store/ai-store";
@@ -10,8 +9,8 @@ import { useAppStore } from "@/store/app-store";
 import { useMounted } from "@/hooks/use-mounted";
 import { useAiService } from "@/components/ai/use-ai-service";
 import { friendlyAiError } from "@/components/ai/ai-error";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/layout/page-header";
 import { ChanakyaChat } from "./chanakya-chat";
 import { ChanakyaInsights } from "./chanakya-insights";
 
@@ -115,36 +114,26 @@ export function ChanakyaWorkspace() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Sparkles className="h-6 w-6 text-primary" /> Chanakya
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your UPSC mentor, planner and strategist{displayName ? `, ${displayName}` : ""} —
-            he sees everything you&apos;ve built and can act on it.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        emoji="🧠"
+        title="Chanakya"
+        description={`Your UPSC mentor, planner and strategist${displayName ? `, ${displayName}` : ""} — he sees everything you've built and can act on it, with your confirmation.`}
+      />
 
       {mounted && !configured && (
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm">
-            <span>
-              Connect an AI provider to bring Chanakya to life. Your key stays
-              in this browser.
-            </span>
-            <Link
-              href="/settings"
-              className="font-medium text-primary hover:underline"
-            >
-              Open Settings → AI
-            </Link>
-          </CardContent>
-        </Card>
+        <div className="callout items-center text-sm">
+          <span aria-hidden>🔑</span>
+          <span className="flex-1">
+            Connect an AI provider to bring Chanakya to life. Your key stays in
+            this browser.
+          </span>
+          <Link href="/settings" className="font-medium underline underline-offset-2">
+            Open Settings → AI
+          </Link>
+        </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         {!mounted ? (
           <Skeleton className="h-[70vh] min-h-[520px] w-full" />
         ) : (

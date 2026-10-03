@@ -13,6 +13,13 @@
 - **End-to-end (browser automation) tests deferred to V5** when auth flows arrive; V1 ships with 23 unit/data-integrity tests plus a founder manual test checklist (see DEPLOYMENT.md).
 - **Prelims topic breakdown:** UPSC publishes Prelims GS as broad headings; the app expands them into the standard study breakdown. Mains papers follow the official syllabus text exactly.
 
+## Accepted limitations (by design in 0.7.0)
+
+- **PSIR practice questions are UPSC-style prompts, not reproduced PYQs.** Add real previous-year questions per topic in its PYQ section.
+- **"Typical dates" are an estimate** (last Sunday of May; Mains ~16 weeks later). Replace them when UPSC publishes the calendar.
+- **The rubric's marks estimate is a guide** (maps self-assessment onto a 20–65% band); Chanakya's AI review gives a second opinion when a provider is connected.
+- **Only PSIR is built in as an optional.** Choosing "another optional" hides PSIR; other optionals' syllabi are not bundled yet.
+
 ## Accepted limitations (by design in Phase B)
 
 - **Images in notes are referenced by URL**, not stored locally — storing image data would exhaust the ~5 MB browser-storage budget. A storage-usage meter lives in Settings; larger storage (IndexedDB) arrives with the cloud-sync phase.

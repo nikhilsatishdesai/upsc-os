@@ -314,6 +314,28 @@ describe("backup round-trip and migration", () => {
     expect(Object.keys(restored.tasks).length).toBeGreaterThan(0);
   });
 
+  it("round-trips the personal timetable and drops invalid entries", () => {
+    useAppStore.getState().configurePlanner("2027-05-30", {
+      ...plannerSettings,
+      weekdayHours: [null, 3, 3, 3, 3, 0, 9],
+      dayFocus: [null, ["mains.psir1", "not.a.paper"], null, null, null, null, ["mains.gs2.ir"]],
+      afternoonStartTime: "15:00",
+      eveningStartTime: "bad",
+      paperWeights: { "mains.psir1": 3, "mains.psir2": 1, "mains.nope": 2 },
+    } as typeof plannerSettings);
+
+    const result = parseExportedState(exportStateToJSON());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const planner = result.data.planner!;
+    expect(planner.weekdayHours).toEqual([null, 3, 3, 3, 3, 0, 9]);
+    expect(planner.dayFocus[1]).toEqual(["mains.psir1"]);
+    expect(planner.dayFocus[6]).toBeNull(); // a unit, not a paper
+    expect(planner.afternoonStartTime).toBe("15:00");
+    expect(planner.eveningStartTime).toBe("19:00");
+    expect(planner.paperWeights).toEqual({ "mains.psir1": 3 });
+  });
+
   it("imports a V1 backup by migrating statuses to stages", () => {
     const v1 = JSON.stringify({
       app: "upsc-os",

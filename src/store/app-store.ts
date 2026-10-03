@@ -53,12 +53,24 @@ import {
   sanitizeAiExport,
   type AiExport,
 } from "@/store/ai-store";
+import {
+  exportPractice,
+  sanitizePracticeExport,
+  type PracticeExport,
+} from "@/store/practice-store";
+import {
+  exportPrefs,
+  sanitizePrefsExport,
+  type PrefsExport,
+} from "@/store/prefs-store";
 
 export const STORE_VERSION = 4;
 /** Backup-file format version (5 added the knowledge section; 6 added the
  * AI section — provider models, routing, budget, conversations, memory;
- * API keys are NEVER included in backups). */
-export const BACKUP_VERSION = 6;
+ * API keys are NEVER included in backups; 7 added the practice section —
+ * answer-writing attempts, booklist and thinker progress — and the prefs
+ * section — attempt year, optional subject, targets, dashboard layout). */
+export const BACKUP_VERSION = 7;
 const MAX_RECENT = 8;
 
 type AppState = {
@@ -138,6 +150,11 @@ export type ExportedState = {
   /** AI subsystem config + conversations + memory; null in pre-v6
    * backups. API keys are never serialized here. */
   ai: AiExport | null;
+  /** Answer practice + PSIR booklist/thinker progress; null in pre-v7
+   * backups. */
+  practice: PracticeExport | null;
+  /** Personal preferences & targets; null in pre-v7 backups. */
+  prefs: PrefsExport | null;
 };
 
 const initialData = {
@@ -867,6 +884,8 @@ export function exportStateToJSON(): string {
     focusCollectionId: state.focusCollectionId,
     knowledge: exportKnowledge(),
     ai: exportAi(),
+    practice: exportPractice(),
+    prefs: exportPrefs(),
   };
   return JSON.stringify(data, null, 2);
 }
@@ -1011,7 +1030,51 @@ function sanitizePlanner(raw: unknown): PlannerSettings | null {
       ["low", "medium", "high"],
       d.burnoutSensitivity,
     ),
+    weekdayHours: sanitizeWeekdayHours(p.weekdayHours),
+    dayFocus: sanitizeDayFocus(p.dayFocus),
+    afternoonStartTime: time(p.afternoonStartTime, d.afternoonStartTime),
+    eveningStartTime: time(p.eveningStartTime, d.eveningStartTime),
+    paperWeights: sanitizePaperWeights(p.paperWeights),
   };
+}
+
+const isPaperId = (id: unknown): id is string =>
+  typeof id === "string" && id.split(".").length === 2 && !!getNode(id);
+
+function sanitizeWeekdayHours(raw: unknown): (number | null)[] {
+  const result: (number | null)[] = [null, null, null, null, null, null, null];
+  if (!Array.isArray(raw)) return result;
+  for (let i = 0; i < 7; i++) {
+    const value = raw[i];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      result[i] = Math.min(16, Math.max(0, Math.round(value * 4) / 4));
+    }
+  }
+  return result;
+}
+
+function sanitizeDayFocus(raw: unknown): (string[] | null)[] {
+  const result: (string[] | null)[] = [null, null, null, null, null, null, null];
+  if (!Array.isArray(raw)) return result;
+  for (let i = 0; i < 7; i++) {
+    const value = raw[i];
+    if (Array.isArray(value)) {
+      const papers = [...new Set(value.filter(isPaperId))];
+      result[i] = papers.length > 0 ? papers : null;
+    }
+  }
+  return result;
+}
+
+function sanitizePaperWeights(raw: unknown): Record<string, number> {
+  const result: Record<string, number> = {};
+  if (typeof raw !== "object" || raw === null) return result;
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (isPaperId(id) && (value === 1 || value === 2 || value === 3)) {
+      if (value !== 1) result[id] = value;
+    }
+  }
+  return result;
 }
 
 function sanitizeSnapshots(raw: unknown): Record<string, DailySnapshot> {
@@ -1105,6 +1168,14 @@ export function parseExportedState(
         obj.version < 6 || obj.ai == null
           ? null
           : sanitizeAiExport(obj.ai),
+      practice:
+        obj.version < 7 || obj.practice == null
+          ? null
+          : sanitizePracticeExport(obj.practice),
+      prefs:
+        obj.version < 7 || obj.prefs == null
+          ? null
+          : sanitizePrefsExport(obj.prefs),
     },
   };
 }

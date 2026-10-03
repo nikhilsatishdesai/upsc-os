@@ -89,30 +89,32 @@ export function TopicWorkspace({ topicId }: { topicId: string }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-0.5">
       <KnowledgeSection
         title="Notes"
         icon={NotebookPen}
+        description="Your main markdown notes — tables, checklists, callouts"
         defaultOpen={hasNote}
       >
         <RichNoteEditor topicId={topicId} />
       </KnowledgeSection>
 
-      <KnowledgeSection title="Quick Notes" icon={Zap} count={counts.quick}>
+      <KnowledgeSection title="Quick Notes" icon={Zap} count={counts.quick} description="Mnemonics, tricks and one-line reminders">
         <QuickNotes topicId={topicId} />
       </KnowledgeSection>
 
-      <KnowledgeSection title="Flashcards" icon={Layers} count={counts.cards}>
+      <KnowledgeSection title="Flashcards" icon={Layers} count={counts.cards} description="Active recall cards with a review mode">
         <FlashcardsSection topicId={topicId} />
       </KnowledgeSection>
 
-      <KnowledgeSection title="Keywords" icon={Tags} count={counts.keywords}>
+      <KnowledgeSection title="Keywords" icon={Tags} count={counts.keywords} description="Articles, cases, thinkers, committees to drop into answers">
         <KeywordsSection topicId={topicId} />
       </KnowledgeSection>
 
       <KnowledgeSection
         title="Book References"
         icon={BookOpen}
+        description="Which chapter of which book covers this"
         count={counts.books}
       >
         <BooksSection topicId={topicId} />
@@ -121,6 +123,7 @@ export function TopicWorkspace({ topicId }: { topicId: string }) {
       <KnowledgeSection
         title="Resources"
         icon={Library}
+        description="Links to PDFs, videos and articles"
         count={counts.resources}
       >
         <ResourcesSection topicId={topicId} />
@@ -129,6 +132,7 @@ export function TopicWorkspace({ topicId }: { topicId: string }) {
       <KnowledgeSection
         title="Previous Year Questions"
         icon={FileQuestion}
+        description="Real UPSC questions on this topic, with your attempts"
         count={counts.pyqs}
       >
         <PyqsSection topicId={topicId} />
@@ -137,16 +141,17 @@ export function TopicWorkspace({ topicId }: { topicId: string }) {
       <KnowledgeSection
         title="Current Affairs"
         icon={Newspaper}
+        description="News that makes this topic exam-relevant now"
         count={counts.affairs}
       >
         <CurrentAffairsSection topicId={topicId} />
       </KnowledgeSection>
 
-      <KnowledgeSection title="Study History & Timeline" icon={History}>
+      <KnowledgeSection title="Study History & Timeline" icon={History} description="Every session and edit, in order">
         <HistorySection topicId={topicId} />
       </KnowledgeSection>
 
-      <KnowledgeSection title="Ask Chanakya (AI)" icon={Sparkles}>
+      <KnowledgeSection title="Ask Chanakya (AI)" icon={Sparkles} description="Summaries, explanations, quizzes and mnemonics">
         <AiTopicTools topicId={topicId} />
       </KnowledgeSection>
     </div>

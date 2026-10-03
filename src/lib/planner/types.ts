@@ -70,4 +70,19 @@ export type PlannerSettings = {
   aggressiveness: "relaxed" | "standard" | "intense";
   /** How strongly rising burnout reduces the planned load. */
   burnoutSensitivity: "low" | "medium" | "high";
+
+  /* ---- Personal timetable (defaulted on read via withPlannerDefaults) ---- */
+  /** Study hours per weekday, index 0 = Sunday. null = use `dailyHours`;
+   * 0 = no study that day (e.g. a busy job day). */
+  weekdayHours: (number | null)[];
+  /** Fresh-study focus per weekday (index 0 = Sunday): null = any paper,
+   * otherwise only these paper ids (e.g. ["mains.psir1","mains.psir2"]).
+   * Due revisions are never restricted, so memory never decays. */
+  dayFocus: (string[] | null)[];
+  /** Start times of the afternoon and evening blocks ("HH:MM"). */
+  afternoonStartTime: string;
+  eveningStartTime: string;
+  /** Subject emphasis per paper id: 1 = normal, 2 = high, 3 = very high —
+   * how often the paper comes round in the study rotation. */
+  paperWeights: Record<string, number>;
 };

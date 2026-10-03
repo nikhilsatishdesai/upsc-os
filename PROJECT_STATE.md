@@ -6,7 +6,9 @@
 
 ## Current Milestone
 
-**0.7.0 "PSIR Optional, Personal Timetable & Notion-style workspace" — CODE-COMPLETE** (branch `claude/confident-newton-0mgwiy`). Still NOT deployed.
+**0.7.0 "PSIR Optional, Personal Timetable & Notion-style workspace" — CODE-COMPLETE** (branch `claude/confident-newton-0mgwiy`).
+
+**GitHub Pages deployment** is set up: `.github/workflows/deploy-pages.yml` (push to `main` or manual run) → tests → `npm run build:pages` (static export, `basePath` = repo path, `trailingSlash`) → `scripts/pages-postbuild.mjs` (mirrors RSC payloads for dotted syllabus ids) → Pages. Requires Settings → Pages → Source: GitHub Actions (one-time). URL: https://nikhilsatishdesai.github.io/upsc-os/. Use `useCleanPathname()` (not `usePathname`) for any path comparison — Pages URLs end in `/`.
 
 ### 0.7.0 essentials
 - **PSIR syllabus** `src/data/syllabus/mains-psir.ts` → papers `mains.psir1` (15 units, 60 topics) and `mains.psir2` (14 units, 45 topics); intel in `src/data/topic-intel.ts`; short names PSIR-I/II. Ids are permanent.

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useCleanPathname } from "@/hooks/use-clean-pathname";
 import { ChevronRight, Ellipsis } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ import { ExamCountdownMini } from "@/components/layout/exam-countdown-mini";
 
 /** Bottom tab bar: four primary destinations + a "More" sheet. */
 export function MobileNav() {
-  const pathname = usePathname();
+  const pathname = useCleanPathname();
   const [moreOpen, setMoreOpen] = React.useState(false);
   const mounted = useMounted();
   const optional = usePrefsStore((state) => state.optionalSubject);

@@ -2,6 +2,28 @@
 
 > **Status:** Code is deployment-ready. Waiting on founder to create free GitHub and Vercel accounts (steps below).
 
+## GitHub Pages (free, automatic) — https://nikhilsatishdesai.github.io/upsc-os/
+
+The workflow `.github/workflows/deploy-pages.yml` builds the app as a static
+site (`npm run build:pages` → `out/`) and publishes it on every push to
+`main`, after running the test suite.
+
+**One-time switch (founder, 30 seconds):**
+1. Open **github.com/nikhilsatishdesai/upsc-os** → **Settings** → **Pages** (left menu).
+2. Under **Build and deployment → Source**, choose **GitHub Actions**. That's it — no other settings.
+3. Every update merged into `main` then appears at the address above within ~3 minutes
+   (watch progress in the **Actions** tab; a green tick means it's live).
+   To republish without a code change: **Actions → Deploy to GitHub Pages → Run workflow**.
+
+Notes:
+- Your study data lives in the browser *per website address*. Data entered on the
+  Vercel address won't appear on the GitHub Pages address (and vice versa) — use
+  **Settings → Your data → Export backup** on one and **Import backup** on the other.
+- Technical: the Pages build sets `basePath` from the repository name and
+  `trailingSlash: true`; `scripts/pages-postbuild.mjs` mirrors page data for the
+  dotted syllabus ids so in-app navigation stays instant. Local dev and Vercel
+  builds are unchanged.
+
 ## How hosting works (plain English)
 
 - **GitHub** stores the code safely online (like Google Drive for code, with full history).

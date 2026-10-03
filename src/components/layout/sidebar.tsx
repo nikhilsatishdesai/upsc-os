@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useCleanPathname } from "@/hooks/use-clean-pathname";
 import { ChevronRight, Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -63,7 +63,7 @@ const SYLLABUS_TREE: TreeNode = {
 /** Notion-style sidebar: workspace header, quick rows, a page tree with
  * toggles, and the exam countdown pinned to the bottom. */
 export function Sidebar() {
-  const pathname = usePathname();
+  const pathname = useCleanPathname();
   const mounted = useMounted();
   const { setOpen } = useSearch();
   const displayName = useAppStore((state) => state.displayName);

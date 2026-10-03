@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useCleanPathname } from "@/hooks/use-clean-pathname";
 import { BookMarked, Gauge, PenLine, Quote } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ const TABS = [
 
 /** Tab bar shared by every PSIR page. */
 export function PsirNav() {
-  const pathname = usePathname();
+  const pathname = useCleanPathname();
   return (
     <nav
       aria-label="PSIR sections"

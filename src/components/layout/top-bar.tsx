@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 
 import { getBreadcrumbs } from "@/lib/syllabus";
 import { cn } from "@/lib/utils";
+import { useCleanPathname } from "@/hooks/use-clean-pathname";
 
 type Crumb = { label: string; href: string; emoji?: string };
 
@@ -39,7 +39,7 @@ function crumbsFor(pathname: string): Crumb[] {
 /** Notion-style top bar: the page's location as a breadcrumb trail. Long
  * trails collapse their middle so the current page always shows. */
 export function TopBar({ children }: { children?: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = useCleanPathname();
   const crumbs = crumbsFor(pathname);
   const collapsed =
     crumbs.length > 4

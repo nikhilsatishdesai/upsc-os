@@ -73,3 +73,25 @@ export const WEEKDAY_NAMES = [
   "Friday",
   "Saturday",
 ];
+
+/**
+ * Typical UPSC CSE dates as an editable estimate: Prelims on the last
+ * Sunday of May (next year once this year's has passed), Mains on the
+ * Friday about sixteen weeks later. Always shown as an estimate.
+ */
+export function typicalExamDates(today: string = todayStr()): {
+  prelims: string;
+  mains: string;
+} {
+  const year = Number(today.slice(0, 4));
+  const lastSundayOfMay = (y: number) => {
+    let date = `${y}-05-31`;
+    while (weekdayOf(date) !== 0) date = addDays(date, -1);
+    return date;
+  };
+  let prelims = lastSundayOfMay(year);
+  if (prelims <= today) prelims = lastSundayOfMay(year + 1);
+  let mains = addDays(prelims, 16 * 7);
+  while (weekdayOf(mains) !== 5) mains = addDays(mains, 1);
+  return { prelims, mains };
+}

@@ -30,18 +30,32 @@ function isWeekend(date: string): boolean {
   return weekday === 0 || weekday === 6;
 }
 
+/** Study hours available on a weekday (0 = Sunday): the personal
+ * timetable's override when set, otherwise the everyday `dailyHours`. */
+export function hoursForWeekday(
+  weekday: number,
+  settings: PlannerSettings,
+): number {
+  const override = settings.weekdayHours?.[weekday];
+  return typeof override === "number" ? override : settings.dailyHours;
+}
+
 /**
- * A day's usable study capacity: the base (hours vs sessions×duration,
- * whichever is smaller) scaled by planner aggressiveness, the weekend
- * strategy, and any transient burnout damping (`loadFactor`).
+ * A day's usable study capacity: the base (that weekday's hours vs
+ * sessions×duration, whichever is smaller) scaled by planner
+ * aggressiveness, the weekend strategy, and any transient burnout damping
+ * (`loadFactor`). A weekday set to 0 hours in the timetable is a rest day.
  */
 export function dayCapacity(
   date: string,
   settings: PlannerSettings,
   loadFactor: number = 1,
 ): DayCapacity {
+  const weekday = weekdayOf(date);
+  const hours = hoursForWeekday(weekday, settings);
   const isOffDay =
-    settings.weeklyOffDay >= 0 && weekdayOf(date) === settings.weeklyOffDay;
+    (settings.weeklyOffDay >= 0 && weekday === settings.weeklyOffDay) ||
+    hours <= 0;
   const isVacation = isVacationDay(date, settings);
   if (isOffDay || isVacation) {
     return { date, isOffDay, isVacation, capacityMinutes: 0, sessions: 0 };
@@ -56,7 +70,7 @@ export function dayCapacity(
 
   const capacityMinutes = Math.round(
     Math.min(
-      Math.round(settings.dailyHours * 60),
+      Math.round(hours * 60),
       settings.maxSessionsPerDay * settings.sessionMinutes,
     ) * Math.min(factor, 1.25),
   );
@@ -87,6 +101,12 @@ export function slotStartTime(
   settings: PlannerSettings,
 ): string {
   if (slot === "morning") return settings.studyStartTime;
+  if (slot === "afternoon" && settings.afternoonStartTime) {
+    return settings.afternoonStartTime;
+  }
+  if (slot === "evening" && settings.eveningStartTime) {
+    return settings.eveningStartTime;
+  }
   return PLANNER_CONFIG.slotStarts[slot] ?? settings.studyStartTime;
 }
 
@@ -101,6 +121,9 @@ export function studyDaysPerWeek(settings: PlannerSettings): number {
 /** Minutes of study capacity in a typical week (aggressiveness applied,
  * transient burnout damping and vacations excluded). */
 export function weeklyCapacityMinutes(settings: PlannerSettings): number {
+  if (settings.weekdayHours?.some((hours) => typeof hours === "number")) {
+    return timetableWeeklyMinutes(settings);
+  }
   const perDay = Math.round(
     Math.min(
       Math.round(settings.dailyHours * 60),
@@ -117,4 +140,33 @@ export function weeklyCapacityMinutes(settings: PlannerSettings): number {
     weekend = perDay * (1 - PLANNER_CONFIG.weekendLightFactor);
   }
   return Math.round(perDay * studyDaysPerWeek(settings) - weekend);
+}
+
+/** Weekly capacity when the personal timetable sets per-weekday hours:
+ * the sum of each weekday's real capacity (off/rest days contribute 0;
+ * with no fixed off day the auto recovery day is prorated in). */
+function timetableWeeklyMinutes(settings: PlannerSettings): number {
+  const factor = Math.min(
+    PLANNER_CONFIG.aggressivenessFactor[settings.aggressiveness] ?? 1,
+    1.25,
+  );
+  let total = 0;
+  for (let weekday = 0; weekday < 7; weekday++) {
+    if (settings.weeklyOffDay >= 0 && weekday === settings.weeklyOffDay) continue;
+    const hours = hoursForWeekday(weekday, settings);
+    if (hours <= 0) continue;
+    let dayFactor = factor;
+    if (settings.weekendStrategy === "light" && (weekday === 0 || weekday === 6)) {
+      dayFactor *= PLANNER_CONFIG.weekendLightFactor;
+    }
+    total +=
+      Math.min(
+        Math.round(hours * 60),
+        settings.maxSessionsPerDay * settings.sessionMinutes,
+      ) * dayFactor;
+  }
+  if (settings.weeklyOffDay < 0) {
+    total *= studyDaysPerWeek(settings) / 7;
+  }
+  return Math.round(total);
 }

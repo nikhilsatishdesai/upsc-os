@@ -11,6 +11,8 @@ import {
 } from "@/store/app-store";
 import { useKnowledgeStore } from "@/store/knowledge-store";
 import { useAiStore } from "@/store/ai-store";
+import { usePracticeStore } from "@/store/practice-store";
+import { usePrefsStore } from "@/store/prefs-store";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +33,10 @@ export function DataSettings() {
   const resetKnowledge = useKnowledgeStore((state) => state.resetKnowledge);
   const importAi = useAiStore((state) => state.importAi);
   const resetAi = useAiStore((state) => state.resetAi);
+  const importPractice = usePracticeStore((state) => state.importPractice);
+  const resetPractice = usePracticeStore((state) => state.resetPractice);
+  const importPrefs = usePrefsStore((state) => state.importPrefs);
+  const resetPrefs = usePrefsStore((state) => state.resetPrefs);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = React.useState<ExportedState | null>(null);
@@ -143,6 +149,12 @@ export function DataSettings() {
                   if (pendingImport.ai) {
                     importAi(pendingImport.ai);
                   }
+                  if (pendingImport.practice) {
+                    importPractice(pendingImport.practice);
+                  }
+                  if (pendingImport.prefs) {
+                    importPrefs(pendingImport.prefs);
+                  }
                 }
                 setPendingImport(null);
               }}
@@ -158,8 +170,9 @@ export function DataSettings() {
           <DialogHeader>
             <DialogTitle>Reset all data?</DialogTitle>
             <DialogDescription>
-              This permanently erases your progress, profile and recent
-              topics from this browser. Consider exporting a backup first.
+              This permanently erases your progress, plan, notes, answer
+              practice and AI history from this browser. Consider exporting a
+              backup first.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -172,6 +185,8 @@ export function DataSettings() {
                 resetAll();
                 resetKnowledge();
                 resetAi();
+                resetPractice();
+                resetPrefs();
                 setConfirmReset(false);
               }}
             >

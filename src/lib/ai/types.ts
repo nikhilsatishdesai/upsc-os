@@ -62,6 +62,7 @@ export type AiFeature =
   | "current-affairs-analysis"
   | "pyq-analysis"
   | "revision-coach"
+  | "answer-evaluation"
   | "essay-feedback" // extension point (architecture only)
   | "interview-practice"; // extension point (architecture only)
 

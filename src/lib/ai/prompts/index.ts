@@ -48,3 +48,7 @@ export {
   INTERVIEW_PRACTICE_VERSION,
   type AnalyticsSubject,
 } from "./analysis";
+export {
+  buildAnswerEvaluationPrompt,
+  ANSWER_EVALUATION_VERSION,
+} from "./answers";

@@ -33,6 +33,8 @@ import {
 } from "@/lib/knowledge/search";
 import { useAppStore } from "@/store/app-store";
 import { useKnowledgeStore } from "@/store/knowledge-store";
+import { THINKERS } from "@/data/psir/thinkers";
+import { PSIR_QUESTIONS } from "@/data/psir/questions";
 import { cn } from "@/lib/utils";
 
 const HIT_ICONS: Record<KnowledgeHitType, LucideIcon> = {
@@ -173,6 +175,20 @@ function SearchCommandDialog({
     return groups;
   }, [hits]);
 
+  const lower = q.toLowerCase();
+  const thinkerHits =
+    q.length < 2 || (filter !== null && filter !== "topic")
+      ? []
+      : THINKERS.filter((thinker) =>
+          `${thinker.name} ${thinker.school}`.toLowerCase().includes(lower),
+        ).slice(0, 5);
+  const questionHits =
+    q.length < 3 || filter !== null
+      ? []
+      : PSIR_QUESTIONS.filter((question) =>
+          lower.split(/\s+/).every((token) => question.text.toLowerCase().includes(token)),
+        ).slice(0, 4);
+
   const pageResults =
     q === ""
       ? navItems
@@ -190,7 +206,7 @@ function SearchCommandDialog({
   return (
     <CommandDialog open={open} onOpenChange={handleOpenChange} title="Search UPSC OS">
       <CommandInput
-        placeholder="Search topics, notes, cards, PYQs, keywords…"
+        placeholder="Search topics, notes, thinkers, questions, PYQs…"
         value={query}
         onValueChange={setQuery}
       />
@@ -261,6 +277,48 @@ function SearchCommandDialog({
           );
         })}
 
+        {thinkerHits.length > 0 && (
+          <CommandGroup heading="PSIR thinkers">
+            {thinkerHits.map((thinker) => (
+              <CommandItem
+                key={`thinker-${thinker.id}`}
+                value={`thinker-${thinker.id}`}
+                onSelect={() => go(`/psir/thinkers#${thinker.id}`)}
+                className="!items-start"
+              >
+                <span aria-hidden className="mt-0.5 w-4 text-center">💬</span>
+                <span className="min-w-0">
+                  <span className="block truncate">{thinker.name}</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {thinker.period} · {thinker.school}
+                  </span>
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
+        {questionHits.length > 0 && (
+          <CommandGroup heading="Practice questions">
+            {questionHits.map((question) => (
+              <CommandItem
+                key={`question-${question.id}`}
+                value={`question-${question.id}`}
+                onSelect={() => go(`/practice?q=${question.id}`)}
+                className="!items-start"
+              >
+                <span aria-hidden className="mt-0.5 w-4 text-center">✍️</span>
+                <span className="min-w-0">
+                  <span className="line-clamp-2">{question.text}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {question.marks} marks · write it now
+                  </span>
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
         {pageResults.length > 0 && (
           <CommandGroup heading="Pages">
             {pageResults.map((item) => (
@@ -269,7 +327,7 @@ function SearchCommandDialog({
                 value={`page-${item.href}`}
                 onSelect={() => go(item.href)}
               >
-                <item.icon />
+                <span aria-hidden className="w-4 text-center">{item.emoji}</span>
                 {item.title}
               </CommandItem>
             ))}

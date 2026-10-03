@@ -45,6 +45,8 @@ const PAPER_SHORT_NAMES: Record<string, string> = {
   "mains.gs2": "GS-II",
   "mains.gs3": "GS-III",
   "mains.gs4": "GS-IV",
+  "mains.psir1": "PSIR-I",
+  "mains.psir2": "PSIR-II",
   "mains.languages": "Language",
 };
 

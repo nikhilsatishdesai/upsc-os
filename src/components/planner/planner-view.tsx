@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 import { withPlannerDefaults } from "@/lib/planner/config";
 import { diffDays, todayStr } from "@/lib/planner/dates";
 import { computeForecast } from "@/lib/planner/forecast";
+import { weeklyCapacityMinutes } from "@/lib/planner/capacity";
 import { useAppStore } from "@/store/app-store";
 import { useMounted } from "@/hooks/use-mounted";
-import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SetupWizard } from "@/components/planner/setup-wizard";
@@ -19,9 +20,17 @@ import { TodayView } from "@/components/planner/today-view";
 import { WeekView } from "@/components/planner/week-view";
 import { AnalyticsView } from "@/components/planner/analytics-view";
 import { ScopeView } from "@/components/planner/scope-view";
+import { TimetableView } from "@/components/planner/timetable-view";
 
-const TABS = ["Today", "Week", "Scope", "Analytics"] as const;
+const TABS = ["Today", "Week", "Timetable", "Scope", "Analytics"] as const;
 type Tab = (typeof TABS)[number];
+const TAB_EMOJI: Record<Tab, string> = {
+  Today: "🎯",
+  Week: "📅",
+  Timetable: "🕰️",
+  Scope: "🧭",
+  Analytics: "📈",
+};
 
 export function PlannerView() {
   const mounted = useMounted();
@@ -76,37 +85,43 @@ export function PlannerView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Planner</h1>
-          <div className="mt-1.5 flex flex-wrap gap-2">
+      <PageHeader
+        emoji="🗓️"
+        title="Planner"
+        description={
+          <span className="flex flex-wrap items-center gap-2">
             {prelimsDays !== null && prelimsDays >= 0 && (
-              <Badge variant="accent">Prelims in {prelimsDays} days</Badge>
+              <span className="tag tag-yellow">Prelims in {prelimsDays} days</span>
             )}
             {mainsDays >= 0 && (
-              <Badge variant="secondary">Mains in {mainsDays} days</Badge>
+              <span className="tag tag-purple">Mains in {mainsDays} days</span>
             )}
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => regeneratePlan()}>
-            <RefreshCw /> Replan
-          </Button>
-          <AskChanakyaMenu />
-          <PlannerSettingsDialog />
-        </div>
-      </div>
+            <span>Adaptive plan · rebuilt daily · shaped by your timetable</span>
+          </span>
+        }
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => regeneratePlan()}>
+              <RefreshCw /> Replan
+            </Button>
+            <AskChanakyaMenu />
+            <PlannerSettingsDialog />
+          </>
+        }
+      />
 
       {paceWarning && (
-        <p className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
-          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+        <p className="callout text-sm">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <span>
             At the current pace the syllabus finishes after Prelims. You need
             about{" "}
             {Math.round(((paceWarning.requiredDailyMinutes ?? 0) / 60) * 10) /
               10}{" "}
-            h/day (currently {planner.dailyHours} h). See Analytics for
-            details.
+            h/day; your timetable gives about{" "}
+            {Math.round((weeklyCapacityMinutes(planner) / 7 / 60) * 10) / 10} h/day.
+            Add hours in the Timetable tab, raise emphasis only where it matters,
+            or pause low-priority topics in Scope.
           </span>
         </p>
       )}
@@ -114,7 +129,7 @@ export function PlannerView() {
       <div
         role="tablist"
         aria-label="Planner views"
-        className="inline-flex rounded-lg border bg-secondary/50 p-1"
+        className="-mx-4 flex gap-1 overflow-x-auto border-b px-4 scrollbar-none md:mx-0 md:px-0"
       >
         {TABS.map((name) => (
           <button
@@ -123,12 +138,13 @@ export function PlannerView() {
             aria-selected={tab === name}
             onClick={() => setTab(name)}
             className={cn(
-              "rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
+              "-mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 px-2 pb-2 pt-1 text-sm font-medium transition-colors",
               tab === name
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
+            <span aria-hidden>{TAB_EMOJI[name]}</span>
             {name}
           </button>
         ))}
@@ -136,6 +152,7 @@ export function PlannerView() {
 
       {tab === "Today" && <TodayView settings={planner} />}
       {tab === "Week" && <WeekView settings={planner} />}
+      {tab === "Timetable" && <TimetableView settings={planner} />}
       {tab === "Scope" && <ScopeView />}
       {tab === "Analytics" && <AnalyticsView settings={planner} />}
     </div>

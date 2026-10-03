@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:pages": "cross-env GITHUB_PAGES=true NEXT_DIST_DIR=out next build && node scripts/pages-postbuild.mjs out"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.18",

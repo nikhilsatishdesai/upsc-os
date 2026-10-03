@@ -56,7 +56,7 @@ export function TodayPlanCard() {
   }, [tasks, today]);
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between gap-2 text-sm font-medium text-muted-foreground">
           <span className="flex items-center gap-2">
@@ -178,7 +178,7 @@ export function TodayPlanCard() {
               Revisions today:{" "}
               {data.revisionsToday.length > 0
                 ? data.revisionsToday.length
-                : "none — the spaced-revision engine arrives in V3."}
+                : "none due — spaced revisions appear automatically 3, 10 and 30 days after a reading."}
             </p>
           </div>
         )}

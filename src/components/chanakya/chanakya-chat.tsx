@@ -69,7 +69,7 @@ export function ChanakyaChat({
   );
 
   return (
-    <div className="flex h-[70vh] min-h-[520px] flex-col rounded-xl border bg-card">
+    <div className="flex h-[70vh] min-h-[520px] min-w-0 flex-col rounded-lg border bg-card">
       {/* Header: conversation switcher + provider indicator */}
       <div className="flex items-center gap-2 border-b px-3 py-2">
         <Button variant="outline" size="sm" onClick={onNewChat} className="shrink-0">

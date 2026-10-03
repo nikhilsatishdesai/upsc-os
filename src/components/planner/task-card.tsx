@@ -30,6 +30,7 @@ import { explainTask } from "@/lib/planner/explain";
 import { paperShortName, resolveTopicIntel, subjectNameOf } from "@/lib/planner/intel";
 import type { PlannedTask } from "@/lib/planner/types";
 import { tomorrowStr, useAppStore } from "@/store/app-store";
+import { StartFocusButton } from "@/components/focus/start-focus-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -147,7 +148,7 @@ export function TaskCard({
         event.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "group flex items-center gap-2 rounded-lg border bg-card shadow-sm transition-colors",
+        "group flex items-center gap-2 rounded-md border bg-card transition-colors",
         compact ? "px-2 py-1.5" : "px-3 py-2.5",
         pending && "cursor-grab hover:border-primary/40 active:cursor-grabbing",
         statusStyles[task.status],
@@ -207,9 +208,8 @@ export function TaskCard({
           {isRevision && (
             <span
               className={cn(
-                "shrink-0 rounded-full border px-1.5 font-medium text-violet-600 dark:text-violet-400",
-                "border-violet-500/30 bg-violet-500/10",
-                compact ? "text-[9px]" : "text-[10px]",
+                "tag tag-purple shrink-0 px-1 font-medium",
+                compact ? "text-[9px] leading-4" : "text-[10px] leading-4",
               )}
             >
               {compact ? "R" : `Revision ${Math.min(topic.revisionCount + 1, 3)}`}
@@ -218,7 +218,7 @@ export function TaskCard({
           {!compact && (
             <span
               className={cn(
-                "shrink-0 rounded-full border px-1.5 text-[10px] font-medium",
+                "tag shrink-0 px-1 text-[10px] font-medium leading-4",
                 PRIORITY_META[intel.priority].badge,
               )}
             >
@@ -251,6 +251,17 @@ export function TaskCard({
             ? "Missed"
             : `${task.minutes} min`}
       </span>
+
+      {pending && !compact && task.date === todayStr() && (
+        <StartFocusButton
+          topicId={task.topicId}
+          taskId={task.id}
+          minutes={task.minutes}
+          iconOnly
+          variant="ghost"
+          className="h-7 w-7 shrink-0"
+        />
+      )}
 
       {(pending || task.status === "completed" || task.status === "skipped") && (
         <DropdownMenu>

@@ -2,9 +2,27 @@
 
 > **Purpose:** If a new Claude session opens, reading this file should allow work to continue immediately.
 > **Full developer/AI documentation lives in [`/docs`](./docs) — start with `docs/MASTER_CONTEXT.md` (project-wide context, hard rules), then `docs/PROJECT_STATUS.md` (metrics, debt, priorities).**
-> **Last updated:** 2026-07-06
+> **Last updated:** 2026-10-03
 
 ## Current Milestone
+
+**0.7.0 "PSIR Optional, Personal Timetable & Notion-style workspace" — CODE-COMPLETE** (branch `claude/confident-newton-0mgwiy`).
+
+**GitHub Pages deployment** is set up: `.github/workflows/deploy-pages.yml` (push to `main` or manual run) → tests → `npm run build:pages` (static export, `basePath` = repo path, `trailingSlash`) → `scripts/pages-postbuild.mjs` (mirrors RSC payloads for dotted syllabus ids) → Pages. Requires Settings → Pages → Source: GitHub Actions (one-time). URL: https://nikhilsatishdesai.github.io/upsc-os/. Use `useCleanPathname()` (not `usePathname`) for any path comparison — Pages URLs end in `/`.
+
+### 0.7.0 essentials
+- **PSIR syllabus** `src/data/syllabus/mains-psir.ts` → papers `mains.psir1` (15 units, 60 topics) and `mains.psir2` (14 units, 45 topics); intel in `src/data/topic-intel.ts`; short names PSIR-I/II. Ids are permanent.
+- **PSIR library** `src/data/psir/*` (exam pattern/formats/framework/strategy, 48 thinkers, 187 practice questions with content-hashed ids, 29 sources, synergy map) + pure lookups `src/lib/psir.ts` (`thinkersForTopic`, `questionsForTopic`, `sourcesForTopic`, `synergyForTopic`, `nextPsirTopics`). `src/lib/psir.test.ts` guards every link.
+- **Routes**: `/psir`, `/psir/thinkers`, `/psir/books`, `/practice` (`?q=`, `?topic=`, `?attempt=` deep links). PSIR toolkit on PSIR topic pages.
+- **Stores**: `practice-store` (answers/draft/sources/thinkers), `prefs-store` (attempt year, optional, targets, hidden dashboard cards), device-only `focus-store` + `ui-store`. Backup **v7**.
+- **Planner personalisation** (`PlannerSettings`, defaulted via `PLANNER_SETTING_DEFAULTS`, no migration): `weekdayHours` (capacity per weekday; 0 = rest), `dayFocus` (scheduler `rotation.next(allowed)`; revisions unrestricted; falls back to normal mix), `afternoonStartTime`/`eveningStartTime`, `paperWeights` (weighted interleaved paper cycle). UI: Planner → Timetable tab. Tests: `src/lib/planner/timetable.test.ts`.
+- **AI**: `answer-evaluation` feature (`src/lib/ai/prompts/answers.ts`, `service.evaluateAnswer`), routed to the reasoning lane.
+- **UI system (Notion-style)**: tokens + `tag-*`, `callout`, `cover-*` utilities in `globals.css`; `PageHeader` (emoji/cover), `TopBar` (breadcrumbs), page-tree `Sidebar`, `ToggleBlock`, property-block `TopicMeta`, table `TopicList`. Focus timer: `src/lib/focus.ts` + `FocusPill` in the app layout.
+- **Gotcha**: grid children that contain `truncate` text need `min-w-0` or phones scroll sideways (fixed on dashboard/PSIR/review/Chanakya — check new grids).
+- **Gotcha**: eslint-config-next's React-compiler rules forbid sync `setState` in effects and ref writes during render — use adjust-state-during-render or a store action.
+- 265 tests, lint clean, `build:check` = 444 static pages.
+
+### Previous milestone
 
 **Phase C.1 "Future-proof AI model management" — CODE-COMPLETE** (on top of Phase C "AI Operating System" / Chanakya). **Still NOT deployed** — founder must create GitHub + Vercel accounts (DEPLOYMENT.md, click-by-click). This has been the single blocking item since V1; remind the founder every session.
 
@@ -74,7 +92,7 @@ V1 foundation → V2 planner → V3 intelligence engine → Phase A adaptive cor
 
 ## Commands Required
 
-- `npm run dev` · `npm test` (214) · `npm run lint` · `npm run build:check` (never plain `build` while dev server runs)
+- `npm run dev` · `npm test` (265) · `npm run lint` · `npm run build:check` (never plain `build` while dev server runs)
 
 ## Deployment Status
 

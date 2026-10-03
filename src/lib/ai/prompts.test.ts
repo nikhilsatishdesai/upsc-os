@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ANSWER_EVALUATION_VERSION,
+  buildAnswerEvaluationPrompt,
   buildDailyBriefingPrompt,
   buildFlashcardsPrompt,
   buildMentorChatPrompt,
@@ -83,5 +85,42 @@ describe("planner advice prompt", () => {
     });
     expect(built.request.system).toContain('"actions"');
     expect(built.request.system).toContain("deterministic");
+  });
+});
+
+describe("answer evaluation prompt", () => {
+  const base = {
+    question: "Critically examine Rawls' theory of justice.",
+    marks: 15,
+    wordTarget: 250,
+    timeLimitMinutes: 11,
+    minutesSpent: 12,
+    answerText: "Rawls proposes justice as fairness.",
+    paperLabel: "the PSIR optional",
+    suggestedThinkers: ["John Rawls", "Communitarians"],
+  };
+
+  it("is versioned, demands realistic marking and grounds in notes", () => {
+    const built = buildAnswerEvaluationPrompt({ ...base, context: bundle });
+    expect(built.version).toBe(ANSWER_EVALUATION_VERSION);
+    expect(built.request.system).toContain("Score: X / 15");
+    expect(built.request.system).toContain("never inflate");
+    expect(built.request.system).toContain("John Rawls, Communitarians");
+    expect(built.request.system).toContain("they wrote 5 words in 12 minutes");
+    expect(built.request.system).toContain("Article 14 note");
+    expect(built.request.messages).toHaveLength(1);
+    expect(built.request.messages[0].content).toContain("My answer:");
+  });
+
+  it("handles a blank answer and no topic context", () => {
+    const built = buildAnswerEvaluationPrompt({
+      ...base,
+      answerText: "   ",
+      suggestedThinkers: [],
+      context: null,
+    });
+    expect(built.request.messages[0].content).toContain("(blank)");
+    expect(built.request.system).not.toContain("Thinkers/schools typically");
+    expect(built.request.system).not.toContain("ground truth");
   });
 });

@@ -46,20 +46,17 @@ export function StatusSelect({
           type="button"
           aria-label={`Change study stage (currently ${meta.label})`}
           className={cn(
-            "inline-flex shrink-0 items-center gap-2 rounded-full border bg-card font-medium shadow-sm transition-colors hover:bg-secondary",
-            size === "lg" ? "px-4 py-2 text-sm" : "px-2.5 py-1 text-xs",
+            "tag shrink-0 cursor-pointer font-medium transition-opacity hover:opacity-80",
+            meta.tag,
+            size === "lg" && "h-8 px-2.5 text-sm",
           )}
         >
           <span
             aria-hidden
-            className={cn(
-              "rounded-full",
-              size === "lg" ? "h-2.5 w-2.5" : "h-2 w-2",
-              meta.dot,
-            )}
+            className={cn("h-2 w-2 rounded-full", meta.dot)}
           />
-          <span className={meta.text}>{meta.label}</span>
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          {meta.label}
+          <ChevronDown className="h-3 w-3 opacity-60" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

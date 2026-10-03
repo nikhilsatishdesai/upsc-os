@@ -2,6 +2,56 @@
 
 All notable changes to UPSC OS are documented here.
 
+## [0.7.0] — "PSIR Optional, Personal Timetable & Notion-style workspace" — 2026-10-03 (code complete; deployment pending)
+
+A major usability release: the complete PSIR optional, a personal timetable and targets layer, timed answer writing, a focus timer, and a calmer Notion-style interface.
+
+### Added — PSIR optional (Political Science & International Relations)
+- **Full official syllabus** for Paper I (Political Theory & Indian Politics) and Paper II (Comparative Politics & IR) as **105 trackable topics** in 29 units (`mains.psir1`, `mains.psir2`) — every thinker and relationship UPSC names is its own topic. Total syllabus: 340 topics.
+- **Curated exam intelligence** for every PSIR unit/topic (priority, difficulty, time, revision weight) so the planner schedules the optional sensibly from day one; paper labels `PSIR-I` / `PSIR-II`.
+- **PSIR command centre** (`/psir`) — both papers' progress, "Next up in PSIR" (unfinished readings first, then highest-yield), section-by-section unit map, exam pattern, time & word budget, the 6-step answer framework, strategy, and a **PSIR ↔ GS synergy map**.
+- **Thinkers vault** (`/psir/thinkers`) — 48 one-page thinker sheets (works, core ideas, well-established quotes, standard critiques, where to use them), searchable and filterable, with Learning/Mastered tracking and `#id` deep links.
+- **Booklist** (`/psir/books`) — 29 standard sources tiered Foundation → Core → Depth → Current, grouped by paper section, with reading status.
+- **PSIR toolkit on every PSIR topic page** — thinkers to cite, practice questions, GS areas it also prepares, and what to read.
+- **187 UPSC-style practice questions** across every PSIR topic (clearly labelled practice prompts, not reproduced PYQs).
+
+### Added — Answer Writing (`/practice`)
+- Question bank with filters, "Surprise me", or your own question linked to any topic.
+- Exam-conditions editor: pausable timer sized to the marks (≈0.72 min/mark), live word meter, framework and thinker hints, **autosaved draft** that survives reloads.
+- Review: 7-criterion self-evaluation rubric → realistic marks estimate (20–65% band), next-thing-to-fix, and an optional **Chanakya examiner review** (new `answer-evaluation` AI feature grounded in your topic notes).
+- History table and stats: weekly count, writing streak, average self-score, on-time %.
+
+### Added — Personalisation
+- **Planner → Timetable tab**: study hours per weekday (0 = rest day), **subject focus per weekday** (e.g. PSIR on Mon/Wed/Fri — revisions are never blocked; falls back to the normal mix when the focus papers run out), custom morning/afternoon/evening start times, and **subject emphasis** per paper (Normal/High/Very high — weighted, interleaved rotation). Live weekly preview; save replans instantly.
+- **My targets**: weekly study hours, sessions, answers and flashcard reviews, plus per-paper first-reading deadlines with required vs recent pace — shown on the dashboard.
+- **About you**: target attempt year, Mains date, and optional-subject choice (choosing "another optional" hides PSIR and removes its topics from plan/progress; data kept).
+- **Dashboard layout**: show/hide every dashboard block.
+
+### Added — Daily-use utilities
+- **Focus timer** — start from the dashboard, any planner task or topic page; floating pill follows you across pages, shows the countdown in the browser tab, chimes at time-up, and "Done" completes the planner session.
+- **Dashboard** rebuilt around "what now": greeting with countdowns, stat strip, **Up next** session card, self-ticking getting-started checklist, quick actions, targets and PSIR cards.
+- Ctrl+K search now finds PSIR thinkers and practice questions.
+- Previous/Next topic navigation in reading order on every topic page.
+- "Use typical dates" in planner setup (estimate of the usual UPSC calendar).
+
+### Changed — Notion-style interface
+- Warm-neutral palette, Notion's system font stack, flat bordered blocks, Notion tag colours for stages/priorities.
+- Sidebar is a page tree: workspace header, Search, Dashboard, Planner, expandable **Syllabus (stages → papers → units)** and **PSIR** trees that auto-reveal the current page, plus a live exam-countdown/streak widget.
+- Breadcrumb top bar; emoji page icons and cover banners; view-style tabs.
+- Topic pages: Notion-style **property block** (status, paper, priority, difficulty, confidence, study time, last studied, next revision) and toggle sections; unit pages render topics as a **database table**.
+
+### Fixed
+- Leaf topics in the syllabus browser weren't clickable (only reachable via search).
+- Mobile bottom nav placed 6 items in a 5-column grid; now 4 tabs + a "More" sheet.
+- Planner wizard defaults (3 × 60 min vs 6 h/day) triggered its own warning; now 4 × 90 min.
+- Horizontal overflow on phones (grid items without `min-width: 0`) on dashboard, PSIR, review and Chanakya pages.
+- Stale copy ("V1 · Foundation", "revision engine arrives in V3").
+
+### Storage & compatibility
+- New stores: `upsc-os-practice` (answers, draft, booklist & thinker progress), `upsc-os-prefs` (attempt year, optional, targets, dashboard layout); device-only `upsc-os-focus` and `upsc-os-ui` (not backed up).
+- **Backup format v7** adds `practice` and `prefs` sections; v1–v6 files still import. New planner settings (weekdayHours, dayFocus, block times, paperWeights) default on read — no migration — and are sanitized in backups.
+- 265 tests pass (214 prior + 51 new: PSIR data integrity, thinkers/questions/sources/synergy links, timetable scheduling, focus timing, practice store & rubric maths, targets, backup v7). Lint clean; isolated build green (444 static pages).
+
 ## [0.6.1] — Phase C.1 "Future-proof AI provider & model management" — 2026-07-06 (code complete; deployment pending)
 
 A targeted, backward-compatible refactor so UPSC OS **never needs a code change or redeploy when a provider releases a new model**. No architecture rewrite; planner, knowledge workspace and Chanakya's conversation engine untouched.

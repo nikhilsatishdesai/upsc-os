@@ -8,6 +8,7 @@ import {
 } from "./context";
 import {
   buildAnalyticsExplanationPrompt,
+  buildAnswerEvaluationPrompt,
   buildConversationSummaryPrompt,
   buildCurrentAffairsPrompt,
   buildDailyBriefingPrompt,
@@ -42,6 +43,9 @@ import {
 } from "./structured";
 import { getNode } from "@/lib/syllabus";
 import { todayStr } from "@/lib/planner/dates";
+import { paperShortName } from "@/lib/planner/intel";
+import { isPsirId, psirTopicLabel, thinkersForTopic } from "@/lib/psir";
+import { answerFormat } from "@/data/psir/exam";
 import type { AiAction, AiActionGateway } from "./actions";
 import { describeAiAction, executeAiAction } from "./actions";
 import type { AiCacheEntry } from "./cache";
@@ -309,6 +313,45 @@ export function createAiService(deps: AiServiceDeps) {
       });
       const response = await oneShot(built, "current-affairs-analysis", {
         cache: true,
+      });
+      return response.text;
+    },
+
+    /* ---- Answer writing ---- */
+
+    /** Examiner-style review of a timed Mains practice answer. Grounded in
+     * the topic's notes when the answer is linked to a syllabus topic. */
+    async evaluateAnswer(input: {
+      question: string;
+      marks: number;
+      answer: string;
+      topicId: string | null;
+      secondsSpent: number;
+      timeLimitSeconds: number;
+    }) {
+      const topicId =
+        input.topicId && getNode(input.topicId) ? input.topicId : null;
+      const format = answerFormat(input.marks);
+      const paperLabel = !topicId
+        ? "a Mains paper"
+        : isPsirId(topicId)
+          ? `the Political Science & IR optional (${psirTopicLabel(topicId)})`
+          : `${paperShortName(topicId)} (${titleOf(topicId)})`;
+      const built = buildAnswerEvaluationPrompt({
+        question: input.question,
+        marks: input.marks,
+        wordTarget: format.words,
+        timeLimitMinutes: Math.round(input.timeLimitSeconds / 60),
+        minutesSpent: Math.max(1, Math.round(input.secondsSpent / 60)),
+        answerText: input.answer,
+        paperLabel,
+        suggestedThinkers: topicId
+          ? thinkersForTopic(topicId).slice(0, 6).map((thinker) => thinker.name)
+          : [],
+        context: topicId ? topicContext(topicId) : null,
+      });
+      const response = await oneShot(built, "answer-evaluation", {
+        interactive: true,
       });
       return response.text;
     },

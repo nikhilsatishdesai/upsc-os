@@ -1,7 +1,5 @@
 "use client";
 
-import { CalendarCheck2 } from "lucide-react";
-
 import { useAppStore } from "@/store/app-store";
 import {
   Card,
@@ -18,18 +16,17 @@ export function SetupWizard() {
   const configurePlanner = useAppStore((state) => state.configurePlanner);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-          <CalendarCheck2 className="h-6 w-6 text-primary" />
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Set up your study planner
+    <div className="max-w-2xl space-y-6">
+      <div className="space-y-3">
+        <div aria-hidden className="select-none text-[52px] leading-none">🗓️</div>
+        <h1 className="text-[30px] font-bold leading-tight tracking-tight md:text-[40px]">
+          Build your study plan
         </h1>
-        <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-          Eight quick questions. The planner then builds an adaptive,
-          day-by-day study plan from whatever is left of the syllabus — and
-          keeps it realistic as life happens.
+        <p className="max-w-xl text-[15px] leading-relaxed text-muted-foreground">
+          A few questions about your exam dates and routine. The planner then
+          schedules every remaining topic — PSIR included — with spaced
+          revisions and rest days, and adapts as life happens. You can shape
+          each weekday afterwards in the <strong>Timetable</strong> tab.
         </p>
       </div>
 

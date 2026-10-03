@@ -1,64 +1,82 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
-import { getStages } from "@/lib/syllabus";
-import { SubtreeProgress } from "@/components/syllabus/subtree-progress";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { TOTAL_LEAF_TOPICS } from "@/lib/syllabus";
+import { PageHeader, SectionHeading } from "@/components/layout/page-header";
+import { PaperCard, StageLegend } from "@/components/syllabus/paper-card";
 
 export const metadata: Metadata = { title: "Syllabus" };
 
+const GROUPS: {
+  title: string;
+  description: string;
+  papers: { id: string; badge?: string }[];
+  action?: { href: string; label: string };
+}[] = [
+  {
+    title: "Preliminary Examination",
+    description:
+      "Objective screening stage — Paper I decides the cut-off; CSAT is qualifying at 33%.",
+    papers: [{ id: "prelims.gs" }, { id: "prelims.csat", badge: "Qualifying" }],
+  },
+  {
+    title: "Mains — Essay & General Studies",
+    description: "1,250 marks of descriptive papers that decide your rank with the optional.",
+    papers: [
+      { id: "mains.essay" },
+      { id: "mains.gs1" },
+      { id: "mains.gs2" },
+      { id: "mains.gs3" },
+      { id: "mains.gs4" },
+    ],
+  },
+  {
+    title: "Mains — Optional: Political Science & IR",
+    description: "500 marks across two papers — the single biggest block of the written exam.",
+    papers: [
+      { id: "mains.psir1", badge: "Optional" },
+      { id: "mains.psir2", badge: "Optional" },
+    ],
+    action: { href: "/psir", label: "Open the PSIR command centre" },
+  },
+  {
+    title: "Mains — Qualifying Language Papers",
+    description: "25% to qualify; marks are not counted for ranking.",
+    papers: [{ id: "mains.languages", badge: "Qualifying" }],
+  },
+];
+
 export default function SyllabusPage() {
-  const stages = getStages();
-
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Syllabus</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The complete UPSC Civil Services syllabus. Open any paper and mark
-          topics as you study them.
-        </p>
-      </div>
+    <div className="space-y-10">
+      <PageHeader
+        cover="parchment"
+        emoji="📚"
+        title="Syllabus"
+        description={`The complete UPSC CSE syllabus as ${TOTAL_LEAF_TOPICS} trackable topics. Open a paper, then any topic to take notes, add flashcards and PYQs, and set its study stage.`}
+        actions={<StageLegend />}
+      />
 
-      {stages.map(({ stage, papers }) => (
-        <section key={stage.id} className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">
-              {stage.title}
-            </h2>
-            {stage.description && (
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                {stage.description}
-              </p>
-            )}
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {papers.map((paper) => (
-              <Link key={paper.id} href={`/syllabus/${paper.id}`}>
-                <Card className="h-full transition-colors hover:border-primary/40 hover:bg-secondary/30">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-start justify-between gap-2 text-base">
-                      <span>{paper.title}</span>
-                      <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    </CardTitle>
-                    {paper.description && (
-                      <CardDescription className="line-clamp-2">
-                        {paper.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <SubtreeProgress nodeId={paper.id} />
-                  </CardContent>
-                </Card>
-              </Link>
+      {GROUPS.map((group) => (
+        <section key={group.title} className="space-y-4">
+          <SectionHeading
+            title={group.title}
+            description={group.description}
+            action={
+              group.action && (
+                <Link
+                  href={group.action.href}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                >
+                  {group.action.label} <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              )
+            }
+          />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {group.papers.map((paper) => (
+              <PaperCard key={paper.id} paperId={paper.id} badge={paper.badge} />
             ))}
           </div>
         </section>

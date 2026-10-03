@@ -5,6 +5,7 @@ import { mainsGS2 } from "./mains-gs2";
 import { mainsGS3 } from "./mains-gs3";
 import { mainsGS4 } from "./mains-gs4";
 import { mainsEssay, mainsLanguages } from "./mains-other";
+import { mainsPsir1, mainsPsir2 } from "./mains-psir";
 
 /**
  * The complete UPSC Civil Services Examination syllabus, structured from the
@@ -23,13 +24,15 @@ export const syllabusTree: SyllabusNodeDef[] = [
     id: "mains",
     title: "Main Examination",
     description:
-      "Written descriptive stage: Essay + four GS papers + two optional papers, plus two qualifying language papers.",
+      "Written descriptive stage: Essay + four GS papers + two optional papers (PSIR), plus two qualifying language papers.",
     children: [
       mainsEssay,
       mainsGS1,
       mainsGS2,
       mainsGS3,
       mainsGS4,
+      mainsPsir1,
+      mainsPsir2,
       mainsLanguages,
     ],
   },

@@ -295,7 +295,7 @@ describe("v1 → v2 store migration", () => {
   });
 });
 
-describe("backup format v6 (backward compatibility)", () => {
+describe("backup format v6+ (backward compatibility)", () => {
   it("round-trips the AI section through app-store backup", () => {
     useAiStore.getState().setProvider("anthropic", {
       apiKey: "secret",
@@ -304,7 +304,7 @@ describe("backup format v6 (backward compatibility)", () => {
     useAiStore.getState().recordActionDecision("Rebuild plan", true);
 
     const json = exportStateToJSON();
-    expect(JSON.parse(json).version).toBe(6);
+    expect(JSON.parse(json).version).toBe(7);
     expect(json).not.toContain("secret"); // keys excluded from backups
 
     const parsed = parseExportedState(json);
@@ -336,6 +336,6 @@ describe("backup format v6 (backward compatibility)", () => {
     const parsed = parseExportedState(v5);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) expect(parsed.data.ai).toBeNull();
-    expect(BACKUP_VERSION).toBe(6);
+    expect(BACKUP_VERSION).toBe(7);
   });
 });

@@ -11,7 +11,7 @@ export function SearchTrigger() {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      className="flex w-full items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground shadow-sm transition-colors hover:bg-secondary"
+      className="flex w-full items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm text-muted-foreground shadow-soft transition-colors hover:border-primary/30 hover:text-foreground"
     >
       <Search className="h-4 w-4" />
       <span className="flex-1 text-left">Search…</span>
@@ -29,10 +29,10 @@ export function MobileSearchButton() {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      className="flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium text-muted-foreground transition-colors"
+      aria-label="Search"
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
     >
-      <Search className="h-5 w-5" />
-      Search
+      <Search className="h-[18px] w-[18px]" />
     </button>
   );
 }

@@ -171,6 +171,7 @@ export const AI_CONFIG = {
     "current-affairs-analysis": "reasoning",
     "pyq-analysis": "reasoning",
     "revision-coach": "chat",
+    "answer-evaluation": "reasoning",
     "essay-feedback": "reasoning",
     "interview-practice": "chat",
   } as Record<AiFeature, AiCapability>,

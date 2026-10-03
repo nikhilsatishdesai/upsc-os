@@ -178,7 +178,19 @@ export const PLANNER_SETTING_DEFAULTS = {
   vacationTo: null as string | null,
   aggressiveness: "standard" as "relaxed" | "standard" | "intense",
   burnoutSensitivity: "medium" as "low" | "medium" | "high",
+  weekdayHours: [null, null, null, null, null, null, null] as (number | null)[],
+  dayFocus: [null, null, null, null, null, null, null] as (string[] | null)[],
+  afternoonStartTime: "14:00",
+  eveningStartTime: "19:00",
+  paperWeights: {} as Record<string, number>,
 };
+
+/** Subject emphasis levels offered in the timetable editor. */
+export const PAPER_WEIGHT_OPTIONS = [
+  { value: 1, label: "Normal" },
+  { value: 2, label: "High" },
+  { value: 3, label: "Very high" },
+] as const;
 
 /** Merge stored settings (possibly from an older version) with defaults. */
 export function withPlannerDefaults(

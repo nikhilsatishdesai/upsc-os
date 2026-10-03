@@ -127,3 +127,46 @@ export const TOTAL_LEAF_TOPICS = getRoots().reduce(
   (sum, root) => sum + root.leafCount,
   0,
 );
+
+/** Every leaf id in authored (reading) order, computed once. */
+const orderedLeafIds: string[] = (() => {
+  const result: string[] = [];
+  const visit = (id: string) => {
+    const node = byId.get(id)!;
+    if (node.childIds.length === 0) result.push(id);
+    else node.childIds.forEach(visit);
+  };
+  rootIds.forEach(visit);
+  return result;
+})();
+const leafPosition = new Map(orderedLeafIds.map((id, index) => [id, index]));
+
+/**
+ * The previous and next leaf topics in reading order within the same
+ * paper — powers "Previous / Next topic" on topic pages.
+ */
+export function getAdjacentLeaves(id: string): {
+  prev: SyllabusNode | null;
+  next: SyllabusNode | null;
+  position: number;
+  total: number;
+} {
+  const paperPrefix = id.split(".").slice(0, 2).join(".");
+  const inPaper = (candidate: string | undefined) =>
+    candidate !== undefined && candidate.startsWith(paperPrefix + ".")
+      ? byId.get(candidate)!
+      : null;
+  const index = leafPosition.get(id);
+  const paperLeaves = orderedLeafIds.filter((leaf) =>
+    leaf.startsWith(paperPrefix + "."),
+  );
+  if (index === undefined) {
+    return { prev: null, next: null, position: 0, total: paperLeaves.length };
+  }
+  return {
+    prev: inPaper(orderedLeafIds[index - 1]),
+    next: inPaper(orderedLeafIds[index + 1]),
+    position: paperLeaves.indexOf(id) + 1,
+    total: paperLeaves.length,
+  };
+}
